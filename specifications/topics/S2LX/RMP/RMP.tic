@@ -1,0 +1,16 @@
+Name: Requirements Management Plan (S2LX/RMP/RMP)
+Text: 
+The Requirements Management Plan (S2LX/RMP/RMP) defines:
+  * the processes,
+  * measures 
+  * and means 
+for requirements management within the SIL2LinuxMP project.
+IncludeRequirements: full
+SubTopic: S2LX/RMP/OrgRespInterface
+SubTopic: S2LX/RMP/ToolsEnvInfrastructure
+SubTopic: S2LX/RMP/AssumptionsContraints
+SubTopic: S2LX/RMP/Definition
+SubTopic: S2LX/RMP/Traceability
+SubTopic: S2LX/RMP/WorkflowActivities
+SubTopic: S2LX/RMP/ChangeManagement
+

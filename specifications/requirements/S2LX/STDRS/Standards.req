@@ -1,0 +1,18 @@
+Name: Standards
+Type: requirement
+Invented on: 2014-04-01
+Invented by: Authors
+Owner: Community
+Description: 
+SIL2LinuxMP shall be compliant to IEC 61508-3:2011, ISO 26262, EN 50128.
+Rationale:
+IEC 61508-3 is the basic software safety standard to several
+sector and product standards. Fulfilling IEC 61508-3 gives a maximum of other
+safety standards coverage; thus providing maximum usage coverage for
+SIL2LinuxMP. Derivative standards can be fulfilled by fulfilling
+IEC 61508-3 requirements plus a small set of additional requirements.
+Status: not done
+Solved by: S2LX/STDRS/IEC61508-3
+Priority: Community:10
+Effort estimation: 5
+Topic: S2LX/STDRS/STDRS

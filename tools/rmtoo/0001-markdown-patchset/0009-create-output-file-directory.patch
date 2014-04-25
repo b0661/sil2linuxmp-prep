@@ -1,0 +1,47 @@
+From a4ced07ac9b9b11816525498d1bc78c69437d508 Mon Sep 17 00:00:00 2001
+From: Bernhard Noelte <b0661n0e17e@gmail.com>
+Date: Sun, 20 Apr 2014 18:20:23 +0200
+Subject: [PATCH] Create output file directory
+
+---
+ rmtoo/lib/StdOutputParams.py | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/rmtoo/lib/StdOutputParams.py b/rmtoo/lib/StdOutputParams.py
+index 1558bc7..19e4b69 100644
+--- a/rmtoo/lib/StdOutputParams.py
++++ b/rmtoo/lib/StdOutputParams.py
+@@ -9,6 +9,7 @@
+  For licensing details see COPYING
+ '''
+ 
++import os
+ import datetime
+ from rmtoo.lib.DateUtils import parse_date
+ from rmtoo.lib.configuration.Cfg import Cfg
+@@ -27,9 +28,22 @@ class StdOutputParams:
+         self._config = Cfg(config)
+         self.__parse()
+ 
++
++    def __mkdirs(self):
++	'''If not already there, create the directories.'''
++	for directory in [self.__output_directory]:
++	    try:
++		os.makedirs(directory)
++	    except OSError, ose:
++		# It's ok if already there
++		pass
++
+     def __parse_output_filename(self):
+         '''Sets the output filename.'''
+         self._output_filename = self._config.get_rvalue('output_filename')
++        # Create directories, if needed
++        self.__output_directory = os.path.dirname(os.path.abspath(self._output_filename))
++        self.__mkdirs()
+ 
+     @staticmethod
+     def __parse_date(cfg, name, default_value):
+-- 
+1.8.3.2
+

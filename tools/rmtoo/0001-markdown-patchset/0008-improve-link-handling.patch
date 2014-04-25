@@ -1,0 +1,276 @@
+From 19a1a2a4985ae9afc404feeb61a8420ff518d3ba Mon Sep 17 00:00:00 2001
+From: Bernhard Noelte <b0661n0e17e@gmail.com>
+Date: Sat, 19 Apr 2014 16:13:04 +0200
+Subject: [PATCH] Improve link handling.
+
+In case a link links to an artefact that can be cached for
+further use, the artefact is retrived and either stored to the image and
+css output directories or to where python urlretrieve might want to.
+This helps to build more complete standalone documentation.
+
+- reference link label definition
+- inline links
+- automatic links
+---
+ rmtoo/filters/pandoc1_filter_md.py |   2 -
+ rmtoo/lib/Pandoc.py                | 136 ++++++++++++++++++++++++++++---------
+ rmtoo/outputs/pandoc1.py           |   2 +-
+ 3 files changed, 105 insertions(+), 35 deletions(-)
+
+diff --git a/rmtoo/filters/pandoc1_filter_md.py b/rmtoo/filters/pandoc1_filter_md.py
+index f8cd91f..d6dc271 100644
+--- a/rmtoo/filters/pandoc1_filter_md.py
++++ b/rmtoo/filters/pandoc1_filter_md.py
+@@ -87,8 +87,6 @@ class pandoc1_filter_md(IncludeFilter):
+         for source in sources:
+ 	    source_file = PandocFile(self._config, source) 
+             mimetype = source_file.mimetype()
+-            print(mimetype)
+-            print(source_file.abspath())
+             if mimetype == "text/markdown":
+                 with open(source_file.abspath(), "r") as markdown_file:
+ 		    input_text = markdown_file.read()
+diff --git a/rmtoo/lib/Pandoc.py b/rmtoo/lib/Pandoc.py
+index 730911f..a69de37 100644
+--- a/rmtoo/lib/Pandoc.py
++++ b/rmtoo/lib/Pandoc.py
+@@ -54,15 +54,19 @@ class PandocFile:
+         tracer.debug("Called.")
+         # Initialize file and remember output configuration.
+         # Create list of root directories for files
+-        root_dirs = []
++        root_dirs = [oconfig.get_rvalue("output_directory")]
+         if oconfig.is_available('texts_dirs'):
+             root_dirs += oconfig.get_rvalue('texts_dirs')
+         # Retrieve the file and remember file specification and mimetype
+         self._filespec, self._mimetype = self.__retrieve(root_dirs, source, 
+ 							 oconfig.get_rvalue('output_image_path'),
+ 							 oconfig.get_rvalue('output_css_path'))
+-	self._relpath = os.path.relpath(self._filespec[0], oconfig.get_rvalue('output_directory'))
+-
++	if self._mimetype != None:
++	    self._relpath = os.path.relpath(self._filespec[0], oconfig.get_rvalue('output_directory'))
++	else:
++	    # File not cached. We can not provide a relative path
++	    # Make it an absolute one or whatever was provided.
++	    self._relpath = self._filespec[0]
+ 
+     def __find_file(self, root_dirs, filename):
+         ''' Find a filename in the list of root directories
+@@ -72,14 +76,14 @@ class PandocFile:
+             if os.path.isfile(filename):
+                 return filename
+             else:
+-                raise RMTException(115, "File not found [%s]" % filename,
++                raise RMTException(115, "File not found - absolut path [%s]" % filename,
+                                    self.__class__.__name__)
+         for root_path in root_dirs:
+             for root, dirnames, files in os.walk(os.path.normpath(root_path)):
+                 searchfile = os.path.join(root, filename)
+                 if os.path.isfile(searchfile) == True:
+                     return searchfile
+-        raise RMTException(115, "File not found [%s]" % filename,
++        raise RMTException(116, "File not found - relative path [%s]" % filename,
+                            self.__class__.__name__)
+ 
+     def __retrieve(self, root_dirs, source, image_cache_dir, css_cache_dir):
+@@ -88,16 +92,20 @@ class PandocFile:
+         which the object can be found, and headers is whatever the info() method of the
+         object returned by urllib.urlopen()
+         '''
++	mimetype = mimetypes.guess_type(source, False)[0]
++	if mimetype == None:
++	    # We can not handle that.
++	    filespec = (source, "unknown")
++	    return filespec, mimetype
++	  
+         url = urlparse(source)
+         if url.scheme == "" or url.scheme == "file":
+             # sanitize file url and check for file to be available.
+-            url = urlparse("file:%s" %
+-                           (self.__find_file(root_dirs, os.path.normpath(url.path)),
+-                           ))
++            # Remove file scheme as this would confuse e.g. pandoc.
++            url = urlparse(self.__find_file(root_dirs, os.path.normpath(url.path)))
+ 	source = urlunparse(url)
+-	mimetype = mimetypes.guess_type(source, False)[0]
+-	if mimetype in ["image/jpeg", "image/png", "image/gif"]:
+-	    # image files shall be cached in the image directory of the output directory.
++	if mimetype in ["image/jpeg", "image/png", "image/gif", "application/pdf"]:
++	    # image (and doc) files shall be cached in the image directory of the output directory.
+ 	    # This is for later use by html.
+ 	    cachefile = os.path.join(image_cache_dir, os.path.basename(url[2]))
+ 	    if os.path.normpath(url.path) == cachefile:
+@@ -116,9 +124,13 @@ class PandocFile:
+ 		filespec = (cachefile, "cached")
+ 	    else:
+ 		filespec = urllib.urlretrieve(source, cachefile)
+-	else:
++	elif mimetype in ["text/markdown", "text/plain", "application/x-tex"]:
+ 	    # can be cached elsewhere or not altogether
+ 	    filespec = urllib.urlretrieve(source)
++	else:
++	    # We don't have to cache that.
++	    filespec = (source, "unknown")
++	    mimetype = None
+         return filespec, mimetype
+       
+     def filespec(self):
+@@ -329,10 +341,20 @@ class PandocRun:
+                 args,
+                 stdin=subprocess.PIPE,
+                 stdout=subprocess.PIPE,
++                stderr=subprocess.PIPE,
+                 cwd=working_dir
+                 )
+-
+-        return p.communicate(source.encode('utf-8'))[0].decode('utf-8')
++	
++        result = p.communicate(source.encode('utf-8'))
++        
++        trace_result = "%s - return: %s - stdout: %s - stderr: %s" % (" ".join(args), p.returncode, result[0], result[1])
++        if p.returncode == 0:
++	    tracer.debug(trace_result)
++	else:
++	    tracer.error(trace_result)  
++	    print("Pandoc %s" % " ".join(result))
++        
++        return result[0].decode('utf-8')
+ 
+     @staticmethod
+     def get_formats():
+@@ -377,12 +399,35 @@ class PandocMarkdown:
+     
+     bullet_list_markup = "  * "
+ 
++    # regular expression for atx header
+     __re_header_markup_start = re.compile(r'^#', re.MULTILINE)
+-    # regular expression for image ![caption](url alternate)
++    
++    # regular expression for image link ![caption](url alternate)
++    # \0 == whole link
+     # \1 == caption
+     # \2 == url
+     # \3 == alternate
+-    __re_image_markup = re.compile(r'\!\[(.+)\]\s*\(([^\s]+)\s*(.*)\)', re.MULTILINE)
++    __re_image_link_markup = re.compile(r'\!\[(.+)\]\s*\(\s*[\<]?([^\s>]+)[\>]?\s*(.*)\)', re.MULTILINE)
++    
++    # regular expression for reference link label - [label]: url
++    # url may be optional within angle brackets <url>.
++    # internal reeferences start with #, we do not look for them.
++    # footnotes have a ^ the labe start, we do not look for them.
++    # \0 == don't care
++    # \1 == whole link
++    # \2 == label
++    # \3 == url
++    __re_reference_link_label_markup = re.compile(r'(?:^|[^!]?)(\[([^\^].+)\]\:\s*[\<]?([^#\s\>]+)[\>]?)', re.MULTILINE)
++    
++    # regular expression for inline link - [caption](url alternate)
++    # url may be optional within angle brackets <url>.
++    # No space allowed between caption and url part.
++    # \0 == don't care
++    # \1 == whole link
++    # \2 == caption
++    # \3 == url
++    # \4 == alternate
++    __re_inline_link_markup = re.compile(r'(?:^|[^!]?)(\[(.+)\]\(\s*[\<]?([^\s>]+)[\>]?\s*(.*)\))', re.MULTILINE)
+     
+     # Extra arguments for tex generation in case the default template is used
+     __output_template_tex_default_args = [
+@@ -585,13 +630,6 @@ class PandocMarkdown:
+         if len(self.__output_filename_pdf) > 0:
+             self.__fd = open(self.__output_filename_md, "r")
+             # Run process - assure it is run in output directory to make relative path work
+-            print ["--standalone", "--smart",
+-                                    "--table-of-contents", "--toc-depth=6",
+-                                    "--number-sections",
+-                                    "--output=%s" % (self.__output_filename_pdf), 
+-                                    "--template=%s" % (self.__output_template_tex[0]),
+-                                    "--latex-engine=xelatex"
+-                                   ] + self.__output_template_tex_args
+             PandocRun.process_file(self.__fd.read(), "latex", 
+                                    "markdown", 
+                                    ["--standalone", "--smart",
+@@ -611,7 +649,7 @@ class PandocMarkdown:
+                                    ["--standalone", "--smart",
+                                     "--table-of-contents", "--toc-depth=6",
+                                     "--number-sections",
+-                                    "--output=%s" % (self.__output_filename_html[0]),
++                                    "--output=%s" % (self.__output_filename_html),
+                                     "--template=%s" % (self.__output_template_html[0]),
+                                     "-V", "css=%s" % (self.__output_css_files[0])
+                                    ] + self.__output_template_html_args,
+@@ -867,15 +905,49 @@ class PandocMarkdown:
+ 	else:
+ 	    # ---------- Much faster, but can not do everything -----------------.
+ 	    
+-	    # Find all images and replace with absolute path to image
+-	    image_links = PandocMarkdown.__re_image_markup.finditer(fragment)
+-	    for image_link in image_links:
++	    # Find all images and replace with relative path to cached image
++	    links = PandocMarkdown.__re_image_link_markup.finditer(fragment)
++	    for link in links:
++		# Retrieve the file
++		link_file = PandocFile(self._config, link.group(2))
++		if link_file.mimetype() != None:
++		    # Replace image link with local file path
++		    tracer.debug("Replace: %s - 1 [%s] 2 [%s] 3 [%s]" % (link.group(0), link.group(1), link.group(2), link.group(3)))
++		    if link.group(3) != None and len(link.group(3)) > 0:
++			alternate = " %s" % link.group(3)
++		    else:
++			alternate = ""
++		    fragment = fragment.replace("%s" % link.group(0), "![%s](%s%s)" % (link.group(1), link_file.relpath(), 			        
++										        alternate))
++
++	    # Find external reference link label definition. Cache if appropriate and replace with relative path in this case.
++	    links = PandocMarkdown.__re_reference_link_label_markup.finditer(fragment)
++	    for link in links:
++		# Retrieve the file
++		link_file = PandocFile(self._config, link.group(3))
++		if link_file.mimetype() != None:
++		    # Replace link with local file path
++		    # Do not use angle brackets <> for link. This does not work with relative path.
++		    tracer.debug("Replace: %s - 1 [%s] 2 [%s] 3 [%s]" % (link.group(0), link.group(1), link.group(2), link.group(3)))
++		    # Assure space after link label definition!!!
++		    fragment = fragment.replace("%s" % link.group(1), "[%s]: %s " % (link.group(2), link_file.relpath()))
++		    
++	    # Find external reference link label definition. Cache if appropriate and replace with relative path in this case.
++	    links = PandocMarkdown.__re_inline_link_markup.finditer(fragment)
++	    for link in links:
+ 		# Retrieve the file
+-		image_file = PandocFile(self._config, image_link.group(2))
+-		# Replace image link with local file path
+-		# print("%s: 1 [%s] 2 [%s] 3 [%s]" % (image_link.group(0), image_link.group(1), image_link.group(2), image_link.group(3)))
+-		fragment = fragment.replace("%s" % image_link.group(0), "![%s](%s %s)" % (image_link.group(1), image_file.relpath(), 			        
+-									                  image_link.group(3)))
++		link_file = PandocFile(self._config, link.group(3))
++		if link_file.mimetype() != None:
++		    # Replace link with local file path
++		    # Do not use angle brackets <> for link. This does not work with relative path.
++		    tracer.debug("Replace: %s - 1 [%s] 2 [%s] 3 [%s] 4 [%s]" % (link.group(0), link.group(1),
++								                link.group(2), link.group(3), link.group(4)))
++		    if link.group(4) != None and len(link.group(4)) > 0:
++			alternate = " %s" % link.group(4)
++		    else:
++			alternate = ""
++		    fragment = fragment.replace("%s" % link.group(1), "[%s](%s%s)" % (link.group(2), link_file.relpath(), 
++									              alternate))	    
+ 	    
+ 	    # Adjust header levels
+ 	    if self.__section_level > 0:
+diff --git a/rmtoo/outputs/pandoc1.py b/rmtoo/outputs/pandoc1.py
+index c7f5e50..f4e046d 100644
+--- a/rmtoo/outputs/pandoc1.py
++++ b/rmtoo/outputs/pandoc1.py
+@@ -277,7 +277,7 @@ class pandoc1(ExecutorTopicContinuum, CreateMakeDependencies):
+                 row1 += ["Type:"]
+                 row2 += [rtype]
+             else:
+-                # This only happens when a wrong configuration is supllied.
++                # This only happens when a wrong configuration is supplied.
+                 raise RMTException(85, "Wrong pandoc1 output configuration "
+                                    "supplied: unknown tag [%s]" % rattr)
+         simple_table += [row1, row2]
+-- 
+1.8.3.2
+

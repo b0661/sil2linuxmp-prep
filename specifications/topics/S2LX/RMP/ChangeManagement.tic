@@ -1,0 +1,11 @@
+Name: Change Management
+Text:
+Definition of the process by which problems and changes related to
+requirements are submitted, reviewed, and resolved. This includes the process
+for negotiating requirements changes with the community and the SIL2LinuxMP
+organisation. The membership of the Change Control Board (CCB) and procedures
+for processing change requests and approvals to be followed by the CCB is
+defined.
+IncludeRequirements: full
+
+

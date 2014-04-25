@@ -1,0 +1,19 @@
+Name: Software Configuration Index
+Text:
+The Software Configuration Index (SCI) identifies the configuration of the software
+product.
+
+The SCI identifies:
+
+  * The software product.
+  * Executable Object Code.
+  * Each Source Code component.
+  * Previously developed software in the software product, if used.
+  * Software life cycle data.
+  * Archive and release media.
+  * Instructions for building the Executable Object Code, including, for example,
+    instructions and data for compiling and linking; and the procedures used to
+    recover the software for regeneration, testing or
+  * The Software Life Cycle Environment Configuration
+  * Data integrity checks for the Executable Object Code, if used.
+SubTopic: SCI/SCI-LifeCycleEnvironment

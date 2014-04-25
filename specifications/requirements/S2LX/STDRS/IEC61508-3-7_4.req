@@ -1,0 +1,16 @@
+Name: IEC61508-3 Clause 7.4
+Type: requirement
+Invented on: 2014-04-09
+Invented by: Authors
+Owner: Community
+Description:
+SIL2LinuxMP shall fulfil clause 7.4 *Software safety lifecycle requirements - Software design and development* of IEC 61508-3:2010.
+Rationale: 
+Requirements are defined in clause 7.4.2.1, 7.4.2.2, 7.4.2.3, 7.4.2.4, 7.4.2.5,
+7.4.2.6, 7.4.2.7, 7.4.2.3, 7.4.2.8, 7.4.2.9, 7.4.2.10, 7.4.2.11, 7.4.2.12,
+7.4.2.13, 7.4.2.14.
+Status: not done
+#: Solved by: None
+Priority: Community:10
+Effort estimation: 5
+Topic: S2LX/STDRS/IEC61508-3

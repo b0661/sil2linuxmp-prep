@@ -1,0 +1,119 @@
+From feb50b8f9d5118082366e21d34664562e4f46368 Mon Sep 17 00:00:00 2001
+From: Bernhard Noelte <b0661n0e17e@gmail.com>
+Date: Thu, 17 Apr 2014 07:31:36 +0200
+Subject: [PATCH] Added IncludeText: support for csv files.
+
+---
+ rmtoo/filters/pandoc1_filter_md.py | 75 +++++++++++++++++++++++++++++++++-----
+ 1 file changed, 65 insertions(+), 10 deletions(-)
+
+diff --git a/rmtoo/filters/pandoc1_filter_md.py b/rmtoo/filters/pandoc1_filter_md.py
+index 8a1ec06..b3ddf26 100644
+--- a/rmtoo/filters/pandoc1_filter_md.py
++++ b/rmtoo/filters/pandoc1_filter_md.py
+@@ -12,6 +12,7 @@ The pandoc filter converts to Pandoc Markdown.
+ '''
+ 
+ import argparse
++import csv
+ 
+ from rmtoo.lib.logging import tracer
+ from rmtoo.lib.IncludeFilter import IncludeFilter
+@@ -24,29 +25,83 @@ class pandoc1_filter_md(IncludeFilter):
+ 
+     def __filter_from_md(self, input_text):
+         ''' Filter markdownm text.
+-        input_text input as a string.
++        input_text - input as a string.
+         '''
+         return input_text
++      
++    def __filter_from_csv(self, csv_data, csv_has_header):
++        ''' Filter csv data.
++        csv_data - input as returned by csv reader.
++        csv_has_header - True in case first row seems to be a header row
++        The filter is meant for tabular data without long lines.
++        '''
++	# computing column max sizes
++	max_col = []
++	for row in csv_data :
++	    for i in range(0, len(row)) :
++		if len(max_col) <= i : max_col.append(0)
++		if len(row[i]) > max_col[i] : max_col[i]=len(row[i])
++
++	# first line of dashed
++	#print max_col
++	csv_markdown = "+"
++	for i in range(0, len(max_col) - 1):
++	    csv_markdown += "-" * (max_col[i] + 2)
++	    csv_markdown += "+"
++	csv_markdown += "-" * (max_col[-1] + 2)
++	csv_markdown += "+\n"
++
++	line_index = 0
++	for row in csv_data :
++	    if line_index == 1 :
++		csv_markdown += "+"
++		for i in range(0, len(max_col)-1):
++		    csv_markdown += "="*(max_col[i] + 2)
++		    csv_markdown += "+"
++		csv_markdown += "="*(max_col[-1] + 2)
++		csv_markdown += "+\n"
++
++	    for i in range(0, len(row)) :
++		csv_markdown += "| "
++		csv_markdown += row[i]
++		csv_markdown += " "*(max_col[i]-len(row[i]))
++		csv_markdown += " "
++	    csv_markdown += "|\n"
++
++	    if not line_index == 0 :
++		csv_markdown += "+"
++		for i in range(0,len(max_col)-1):
++		    csv_markdown += "-"*(max_col[i] + 2)
++		    csv_markdown += "+"
++		csv_markdown += "-"*(max_col[-1] + 2)
++		csv_markdown += "+\n"
++
++	    line_index +=1
++
++	return csv_markdown
+ 
+     def filter(self, sources, args):
+         tracer.debug("Called.")
+-        print(args)
+         output_text = ""
+         for source in sources:
+             url = IncludeFilter._url(self, source)
+             filespec = IncludeFilter._retrieve(self, url)
+-            print("filespec=")
+-            print(filespec)
+             mimetype = IncludeFilter._mimetype(self, url)
+-            print(mimetype)
+             if mimetype[0] == "text/markdown":
+-                fd = open(filespec[0], "r")
+-                input_text = fd.read()
+-                fd.close()
+-                output_text += self.__filter_from_md(input_text)
++                with open(filespec[0], "r") as markdown_file:
++		    input_text = markdown_file.read()
++		    output_text += self.__filter_from_md(input_text)
+             elif mimetype[0] in ["image/png", "image/jpeg"]:
+                 output_text += "![%s](%s)" % (args.caption, filespec[0])
+                 if args.inline_image == True:
+-                    output_text += r"\ "   
++                    output_text += r"\ "
++            elif mimetype[0] == "text/comma-separated-values":
++		with open(filespec[0], 'rb') as csv_file:
++		    csv_sample = csv_file.read(1024)
++                    csv_file.seek(0)
++		    csv_dialect = csv.Sniffer().sniff(csv_sample)
++		    csv_has_header = csv.Sniffer().has_header(csv_sample)
++		    csv_data = csv.reader(csv_file, csv_dialect)
++		    output_text += self.__filter_from_csv(csv_data, csv_has_header)
+ 
+         return output_text
+\ No newline at end of file
+-- 
+1.8.3.2
+

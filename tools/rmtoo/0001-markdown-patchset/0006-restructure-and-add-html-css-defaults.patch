@@ -1,0 +1,2482 @@
+From 0a4b5d2f9e2c4cce688126cd3207e386c9a22e88 Mon Sep 17 00:00:00 2001
+From: Bernhard Noelte <b0661n0e17e@gmail.com>
+Date: Fri, 18 Apr 2014 12:42:51 +0200
+Subject: [PATCH] Restructure and add html css defaults.
+
+- Default css files for HTML output added.
+- Made Pandoc it's own file
+- Improved PandocFile to cache files in relative to HTML output file.
+  This allows relative links.
+---
+ contrib/template_project/pandoc/common.css   |   80 ++
+ contrib/template_project/pandoc/default.html |   61 ++
+ contrib/template_project/pandoc/default.tex  |  208 ++++++
+ contrib/template_project/pandoc/desktop.css  |   40 +
+ contrib/template_project/pandoc/main.css     |   16 +
+ contrib/template_project/pandoc/mobile.css   |   43 ++
+ contrib/template_project/pandoc/tablet.css   |   47 ++
+ rmtoo/filters/pandoc1_filter_md.py           |   23 +-
+ rmtoo/lib/IncludeFilter.py                   |   63 --
+ rmtoo/lib/IncludeText.py                     |    2 +-
+ rmtoo/lib/Pandoc.py                          | 1037 ++++++++++++++++++++++++++
+ rmtoo/outputs/pandoc1.py                     |  652 +---------------
+ 12 files changed, 1570 insertions(+), 702 deletions(-)
+ create mode 100644 contrib/template_project/pandoc/common.css
+ create mode 100644 contrib/template_project/pandoc/default.html
+ create mode 100644 contrib/template_project/pandoc/default.tex
+ create mode 100644 contrib/template_project/pandoc/desktop.css
+ create mode 100644 contrib/template_project/pandoc/main.css
+ create mode 100644 contrib/template_project/pandoc/mobile.css
+ create mode 100644 contrib/template_project/pandoc/tablet.css
+ create mode 100644 rmtoo/lib/Pandoc.py
+
+diff --git a/contrib/template_project/pandoc/common.css b/contrib/template_project/pandoc/common.css
+new file mode 100644
+index 0000000..114b5bd
+--- /dev/null
++++ b/contrib/template_project/pandoc/common.css
+@@ -0,0 +1,80 @@
++@CHARSET "UTF-8";
++/* COMMON STYLING FOR ALL DEVICES */
++
++/* GENERAL */
++	body {
++		margin: 0;
++		padding: 40px;
++		}
++	
++/* FONT SETTINGS */
++	p {
++		font-family: "times new roman";
++		font-size: 1em;
++		margin-top: 8px;
++		margin-left: 20px;
++		}
++	
++	h1, h2, h3, h4, h5, h6 {
++		margin-top: 20px;
++		font-size: 1.3em;
++		}
++	h1 a, h2 a, h3 a, h4 a, h5 a, h6 a {
++		color: #00a0ca;
++		transition: color 0.3s ease-out;
++		font-weight: bold;
++		text-decoration: none;
++		border-left: 10px solid #00a0ca;
++		margin-left: -20px;
++		padding: 10px;
++		margin-top: 10px;
++		padding-left: 10px;
++		font-family: Verdana;
++		}
++	a:hover /*h1 a:hover, h2 a:hover, h3 a:hover, h4 a:hover, h5 a:hover, h6 a:hover*/ {
++		color: #222222;
++		}
++		
++/* HEADER */
++	div#header {
++		background-color: #00a0ca;
++		color: white;
++		font-family: Verdana;
++		padding: 10px;
++		}
++	div#header > h1 {
++		text-align: center;
++		margin: 0;
++		font-size: 2em;
++		}
++	div#header > h3 {
++		font-size: 1em;
++		}
++		
++/* TOC */
++	div#TOC {
++		background-color: #efefef;
++		font-family: Helvetica;
++		font-size: 0.9em;
++		margin: 0 auto;
++		}
++	div#TOC > ul {
++		margin: 0;
++		padding: 10px;
++		}
++	div#TOC ul {
++		margin-bottom: 5px;
++		}
++	div#TOC li {
++		display: block;
++		margin-bottom: 5px;
++		}
++	div#TOC a {
++		text-decoration: none;
++		font-weight: bold;
++		color: #00313e;
++		transition: color 0.3s ease-out;
++		}
++	div#TOC a:hover {
++		color: #00a0ca;
++		}
+\ No newline at end of file
+diff --git a/contrib/template_project/pandoc/default.html b/contrib/template_project/pandoc/default.html
+new file mode 100644
+index 0000000..3830616
+--- /dev/null
++++ b/contrib/template_project/pandoc/default.html
+@@ -0,0 +1,61 @@
++<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
++<html xmlns="http://www.w3.org/1999/xhtml"$if(lang)$ lang="$lang$" xml:lang="$lang$"$endif$>
++<head>
++  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
++  <meta http-equiv="Content-Style-Type" content="text/css" />
++  <meta name="generator" content="pandoc" />
++$for(author-meta)$
++  <meta name="author" content="$author-meta$" />
++$endfor$
++$if(date-meta)$
++  <meta name="date" content="$date-meta$" />
++$endif$
++  <title>$if(title-prefix)$$title-prefix$ - $endif$$pagetitle$</title>
++  <style type="text/css">code{white-space: pre;}</style>
++$if(quotes)$
++  <style type="text/css">q { quotes: "“" "”" "‘" "’"; }</style>
++$endif$
++$if(highlighting-css)$
++  <style type="text/css">
++$highlighting-css$
++  </style>
++$endif$
++$for(css)$
++  <link rel="stylesheet" href="$css$" $if(html5)$$else$type="text/css" $endif$/>
++$endfor$
++$if(math)$
++  $math$
++$endif$
++$for(header-includes)$
++  $header-includes$
++$endfor$
++</head>
++<body>
++$for(include-before)$
++$include-before$
++$endfor$
++$if(title)$
++<div id="$idprefix$header">
++<h1 class="title">$title$</h1>
++$if(subtitle)$
++<h1 class="subtitle">$subtitle$</h1>
++$endif$
++$for(author)$
++<h2 class="author">$author$</h2>
++$endfor$
++$if(date)$
++<h3 class="date">$date$</h3>
++$endif$
++</div>
++$endif$
++$if(toc)$
++<div id="$idprefix$TOC">
++$toc$
++</div>
++$endif$
++$body$
++$for(include-after)$
++$include-after$
++$endfor$
++</body>
++</html>
+\ No newline at end of file
+diff --git a/contrib/template_project/pandoc/default.tex b/contrib/template_project/pandoc/default.tex
+new file mode 100644
+index 0000000..64a0083
+--- /dev/null
++++ b/contrib/template_project/pandoc/default.tex
+@@ -0,0 +1,208 @@
++\documentclass[$if(fontsize)$$fontsize$,$endif$$if(lang)$$lang$,$endif$$if(papersize)$$papersize$,$endif$$for(classoption)$$classoption$$sep$,$endfor$]{$documentclass$}
++\usepackage{lmodern}
++\usepackage{amssymb,amsmath}
++\usepackage{ifxetex,ifluatex}
++\usepackage{fixltx2e} % provides \textsubscript
++% use upquote if available, for straight quotes in verbatim environments
++\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
++\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
++  \usepackage[T1]{fontenc}
++  \usepackage[utf8]{inputenc}
++$if(euro)$
++  \usepackage{eurosym}
++$endif$
++\else % if luatex or xelatex
++  \ifxetex
++    \usepackage{mathspec}
++    \usepackage{xltxtra,xunicode}
++  \else
++    \usepackage{fontspec}
++  \fi
++  \defaultfontfeatures{Mapping=tex-text,Scale=MatchLowercase}
++  \newcommand{\euro}{€}
++$if(mainfont)$
++    \setmainfont{$mainfont$}
++$endif$
++$if(sansfont)$
++    \setsansfont{$sansfont$}
++$endif$
++$if(monofont)$
++    \setmonofont[Mapping=tex-ansi]{$monofont$}
++$endif$
++$if(mathfont)$
++    \setmathfont(Digits,Latin,Greek){$mathfont$}
++$endif$
++\fi
++% use microtype if available
++\IfFileExists{microtype.sty}{\usepackage{microtype}}{}
++$if(geometry)$
++\usepackage[$for(geometry)$$geometry$$sep$,$endfor$]{geometry}
++$endif$
++$if(natbib)$
++\usepackage{natbib}
++\bibliographystyle{$if(biblio-style)$$biblio-style$$else$plainnat$endif$}
++$endif$
++$if(biblatex)$
++\usepackage{biblatex}
++$if(biblio-files)$
++\bibliography{$biblio-files$}
++$endif$
++$endif$
++$if(listings)$
++\usepackage{listings}
++$endif$
++$if(lhs)$
++\lstnewenvironment{code}{\lstset{language=Haskell,basicstyle=\small\ttfamily}}{}
++$endif$
++$if(highlighting-macros)$
++$highlighting-macros$
++$endif$
++$if(verbatim-in-note)$
++\usepackage{fancyvrb}
++$endif$
++$if(tables)$
++\usepackage{longtable,booktabs}
++$endif$
++$if(graphics)$
++\usepackage{graphicx}
++% Redefine \includegraphics so that, unless explicit options are
++% given, the image width will not exceed the width of the page.
++% Images get their normal width if they fit onto the page, but
++% are scaled down if they would overflow the margins.
++\makeatletter
++\def\ScaleIfNeeded{%
++  \ifdim\Gin@nat@width>\linewidth
++    \linewidth
++  \else
++    \Gin@nat@width
++  \fi
++}
++\makeatother
++\let\Oldincludegraphics\includegraphics
++{%
++ \catcode`\@=11\relax%
++ \gdef\includegraphics{\@ifnextchar[{\Oldincludegraphics}{\Oldincludegraphics[width=\ScaleIfNeeded]}}%
++}%
++$endif$
++\ifxetex
++  \usepackage[setpagesize=false, % page size defined by xetex
++              unicode=false, % unicode breaks when used with xetex
++              xetex]{hyperref}
++\else
++  \usepackage[unicode=true]{hyperref}
++\fi
++\hypersetup{breaklinks=true,
++            bookmarks=true,
++            pdfauthor={$author-meta$},
++            pdftitle={$title-meta$},
++            colorlinks=true,
++            citecolor=$if(citecolor)$$citecolor$$else$blue$endif$,
++            urlcolor=$if(urlcolor)$$urlcolor$$else$blue$endif$,
++            linkcolor=$if(linkcolor)$$linkcolor$$else$magenta$endif$,
++            pdfborder={0 0 0}}
++\urlstyle{same}  % don't use monospace font for urls
++$if(links-as-notes)$
++% Make links footnotes instead of hotlinks:
++\renewcommand{\href}[2]{#2\footnote{\url{#1}}}
++$endif$
++$if(strikeout)$
++\usepackage[normalem]{ulem}
++% avoid problems with \sout in headers with hyperref:
++\pdfstringdefDisableCommands{\renewcommand{\sout}{}}
++$endif$
++\setlength{\parindent}{0pt}
++\setlength{\parskip}{6pt plus 2pt minus 1pt}
++\setlength{\emergencystretch}{3em}  % prevent overfull lines
++$if(numbersections)$
++\setcounter{secnumdepth}{5}
++$else$
++\setcounter{secnumdepth}{0}
++$endif$
++$if(verbatim-in-note)$
++\VerbatimFootnotes % allows verbatim text in footnotes
++$endif$
++$if(lang)$
++\ifxetex
++  \usepackage{polyglossia}
++  \setmainlanguage{$mainlang$}
++\else
++  \usepackage[$lang$]{babel}
++\fi
++$endif$
++
++$if(title)$
++\title{$title$}
++$endif$
++$if(subtitle)$
++\subtitle{$subtitle$}
++$endif$
++\author{$for(author)$$author$$sep$ \and $endfor$}
++\date{$date$}
++
++% Predefined for SIL2LinuxMP 
++\usepackage{fancyhdr}
++\pagestyle{fancy}
++\renewcommand{\chaptermark}[1]{\markboth{#1}{}}
++\fancyhf{} % clear the headers
++\fancyhead[R]{%
++   % The chapter number only if it's greater than 0
++   \ifnum\value{chapter}>0 \chaptername\ \thechapter. \fi
++   % The chapter title
++   \leftmark}
++\fancyfoot[C]{\thepage}
++\fancypagestyle{plain}{
++  \renewcommand{\headrulewidth}{0pt}
++  \fancyhf{}
++  \fancyfoot[C]{\thepage}
++}
++\setlength{\headheight}{14.5pt}
++
++$for(header-includes)$
++$header-includes$
++$endfor$
++
++\begin{document}
++$if(title)$
++\maketitle
++$endif$
++$if(abstract)$
++\begin{abstract}
++$abstract$
++\end{abstract}
++$endif$
++
++$for(include-before)$
++$include-before$
++
++$endfor$
++$if(toc)$
++{
++\hypersetup{linkcolor=blue}
++\setcounter{tocdepth}{$toc-depth$}
++\tableofcontents
++}
++$endif$
++$body$
++
++$if(natbib)$
++$if(biblio-files)$
++$if(biblio-title)$
++$if(book-class)$
++\renewcommand\bibname{$biblio-title$}
++$else$
++\renewcommand\refname{$biblio-title$}
++$endif$
++$endif$
++\bibliography{$biblio-files$}
++
++$endif$
++$endif$
++$if(biblatex)$
++\printbibliography$if(biblio-title)$[title=$biblio-title$]$endif$
++
++$endif$
++$for(include-after)$
++$include-after$
++
++$endfor$
++\end{document}
+\ No newline at end of file
+diff --git a/contrib/template_project/pandoc/desktop.css b/contrib/template_project/pandoc/desktop.css
+new file mode 100644
+index 0000000..58f4d8c
+--- /dev/null
++++ b/contrib/template_project/pandoc/desktop.css
+@@ -0,0 +1,40 @@
++@CHARSET "UTF-8";
++
++/* TOC HEADER */
++	body {
++		margin: 0;
++		margin-left: 400px;
++		background-color: white;
++		padding: 20px;
++		}
++	div#header {
++		position: fixed;
++		top: 0;
++		left: 0;
++		z-index: 101;
++		height: 80px;
++		width: 380px;loc
++		box-shadow: 0 0 3px black;
++		}
++		
++/* TOC MENU */
++	div#TOC {
++		font-family: Helvetica;
++		font-size: 0.9em;
++		z-index: 100;
++		position: fixed;
++		top: 100px;
++		left: 0;
++		height: 100%;
++		overflow-y: scroll;
++		width: 400px;
++		box-shadow: 0 0 3px black;
++		}
++	div#TOC > ul {
++		margin: 0;
++		padding: 10px;
++		padding-bottom: 150px;
++		}
++	div#TOC ul {
++		margin-bottom: 10px;
++		}
+\ No newline at end of file
+diff --git a/contrib/template_project/pandoc/main.css b/contrib/template_project/pandoc/main.css
+new file mode 100644
+index 0000000..8db0fb1
+--- /dev/null
++++ b/contrib/template_project/pandoc/main.css
+@@ -0,0 +1,16 @@
++@CHARSET "UTF-8";
++
++/* STYLING for PANDOC TEMPLATE */
++
++/* common styles */
++	@import url("common.css");
++	
++/* desktop */
++	@import url("desktop.css") (min-width: 1000px);
++	
++/* tablet */
++	@import url("tablet.css") (min-width: 600px) and (max-width: 1000px);
++	@import url("desktop.css") (min-width: 600px) and (max-width: 1000px) and (orientation: landscape);
++	
++/* mobile */
++	@import url("mobile.css") (max-width: 600px);
+\ No newline at end of file
+diff --git a/contrib/template_project/pandoc/mobile.css b/contrib/template_project/pandoc/mobile.css
+new file mode 100644
+index 0000000..5993c4d
+--- /dev/null
++++ b/contrib/template_project/pandoc/mobile.css
+@@ -0,0 +1,43 @@
++@CHARSET "UTF-8";
++
++/* TOC HEADER */
++	body {
++		margin: 0;
++		margin-top: 400px;
++		background-color: white;
++		padding: 20px;
++		font-size: 20px;
++		margin-top: 100px;
++		}
++	div#header {
++		position: fixed;
++		top: 0;
++		left: 0;
++		z-index: 101;
++		height: 80px;
++		width: 100%;
++		box-shadow: 0 0 3px black;
++		}
++	div#header > h1 {
++		font-size: 1.5em;
++		}
++	div#header > h3 {
++		font-size: 0.8em;
++		}
++		
++/* TOC MENU */
++	div#TOC {
++		font-family: Helvetica;
++		font-size: 0.9em;
++		z-index: 100;
++		top: 100px;
++		left: 0;
++		width: 100%;
++		}
++	div#TOC > ul {
++		margin: 0;
++		padding: 10px;
++		}
++	div#TOC ul {
++		margin-bottom: 10px;
++		}
+\ No newline at end of file
+diff --git a/contrib/template_project/pandoc/tablet.css b/contrib/template_project/pandoc/tablet.css
+new file mode 100644
+index 0000000..f3b2d39
+--- /dev/null
++++ b/contrib/template_project/pandoc/tablet.css
+@@ -0,0 +1,47 @@
++@CHARSET "UTF-8";
++
++/* TOC HEADER */
++	body {
++		margin: 0;
++		margin-top: 400px;
++		background-color: white;
++		padding: 20px;
++		margin-top: 100px;
++		}
++	div#header {
++		position: fixed;
++		top: 0;
++		left: 0;
++		z-index: 101;
++		height: 80px;
++		width: 100%;
++		box-shadow: 0 0 3px black;
++		}
++	div#header > h1 {
++		text-align: center;
++		margin: 0;
++		font-size: 2em;
++		}
++	div#header > h3 {
++		font-size: 1em;
++		}
++		
++/* TOC MENU */
++	div#TOC {
++		font-family: Helvetica;
++		font-size: 0.9em;
++		z-index: 100;
++		top: 100px;
++		left: 0;
++		height: 500px;
++		overflow-y: scroll;
++		width: 100%;
++		box-shadow: 0 0 3px black inset;
++		}
++	div#TOC > ul {
++		margin: 0;
++		padding: 10px;
++		}
++	div#TOC ul {
++		margin-bottom: 10px;
++		}
+\ No newline at end of file
+diff --git a/rmtoo/filters/pandoc1_filter_md.py b/rmtoo/filters/pandoc1_filter_md.py
+index b3ddf26..f8cd91f 100644
+--- a/rmtoo/filters/pandoc1_filter_md.py
++++ b/rmtoo/filters/pandoc1_filter_md.py
+@@ -16,6 +16,7 @@ import csv
+ 
+ from rmtoo.lib.logging import tracer
+ from rmtoo.lib.IncludeFilter import IncludeFilter
++from rmtoo.lib.Pandoc import PandocFile
+ 
+ class pandoc1_filter_md(IncludeFilter):
+ 
+@@ -84,24 +85,24 @@ class pandoc1_filter_md(IncludeFilter):
+         tracer.debug("Called.")
+         output_text = ""
+         for source in sources:
+-            url = IncludeFilter._url(self, source)
+-            filespec = IncludeFilter._retrieve(self, url)
+-            mimetype = IncludeFilter._mimetype(self, url)
+-            if mimetype[0] == "text/markdown":
+-                with open(filespec[0], "r") as markdown_file:
++	    source_file = PandocFile(self._config, source) 
++            mimetype = source_file.mimetype()
++            print(mimetype)
++            print(source_file.abspath())
++            if mimetype == "text/markdown":
++                with open(source_file.abspath(), "r") as markdown_file:
+ 		    input_text = markdown_file.read()
+ 		    output_text += self.__filter_from_md(input_text)
+-            elif mimetype[0] in ["image/png", "image/jpeg"]:
+-                output_text += "![%s](%s)" % (args.caption, filespec[0])
++            elif mimetype in ["image/png", "image/jpeg", "image/gif"]:
++                output_text += "![%s](%s)" % (args.caption, source_file.abspath())
+                 if args.inline_image == True:
+                     output_text += r"\ "
+-            elif mimetype[0] == "text/comma-separated-values":
+-		with open(filespec[0], 'rb') as csv_file:
++            elif mimetype == "text/comma-separated-values":
++		with open(source_file.abspath(), 'rb') as csv_file:
+ 		    csv_sample = csv_file.read(1024)
+                     csv_file.seek(0)
+ 		    csv_dialect = csv.Sniffer().sniff(csv_sample)
+ 		    csv_has_header = csv.Sniffer().has_header(csv_sample)
+ 		    csv_data = csv.reader(csv_file, csv_dialect)
+ 		    output_text += self.__filter_from_csv(csv_data, csv_has_header)
+-
+-        return output_text
+\ No newline at end of file
++        return output_text
+diff --git a/rmtoo/lib/IncludeFilter.py b/rmtoo/lib/IncludeFilter.py
+index 9fbc3e3..8d8f6ad 100644
+--- a/rmtoo/lib/IncludeFilter.py
++++ b/rmtoo/lib/IncludeFilter.py
+@@ -9,12 +9,6 @@
+  For licensing details see COPYING
+ '''
+ 
+-import os
+-import mimetypes
+-import urllib
+-from urlparse import urlparse,urlunparse
+-
+-from rmtoo.lib.RMTException import RMTException
+ from rmtoo.lib.logging import tracer
+ 
+ # pylint: disable=W0232 
+@@ -24,63 +18,6 @@ class IncludeFilter:
+         tracer.debug("Called.")
+         ''' Initialize the filter and remember output configuration to be used during filtering.'''
+         self._config = oconfig
+-        # Create list of include directories for files
+-        self._texts_dirs = []
+-        if self._config.is_available('texts_dirs'):
+-            self._texts_dirs += self._config.get_rvalue('texts_dirs')
+-        # Amend mimetypes to also include markdown
+-        mimetypes.add_type("text/markdown", ".markdown", False)
+-        mimetypes.add_type("text/markdown", ".mdown", False)
+-        mimetypes.add_type("text/markdown", ".mkdn", False)
+-        mimetypes.add_type("text/markdown", ".md", False)
+-        mimetypes.add_type("text/markdown", ".mkd", False)
+-        mimetypes.add_type("text/markdown", ".mdwn", False)
+-        mimetypes.add_type("text/markdown", ".mdtxt", False)
+-        mimetypes.add_type("text/markdown", ".mdtext", False)
+-        
+-    def __find_file(self, root_dirs, filename):
+-        ''' Find a filename in the list of root directories
+-        The filename may either be a pure name or some relative/ absolute path.
+-        '''
+-        if os.path.isabs(filename):
+-            if os.path.isfile(filename):
+-                return filename
+-            else:
+-                raise RMTException(115, "File not found [%s]" % filename,
+-                                   self.__class__.__name__)
+-        for root_path in root_dirs:
+-            for root, dirnames, files in os.walk(os.path.normpath(root_path)):
+-                searchfile = os.path.join(root, filename)
+-                if os.path.isfile(searchfile) == True:
+-                    return searchfile
+-        raise RMTException(115, "File not found [%s]" % filename,
+-                           self.__class__.__name__)
+-    
+-    def  _mimetype(self, url):
+-        ''' Get the mimetype of the url.'''
+-        return mimetypes.guess_type(urlunparse(url), False)
+-        
+-    def _retrieve(self, url):
+-        ''' Retrieve a file. 
+-        Return a tuple (filename, headers) where filename is the local file name under
+-        which the object can be found, and headers is whatever the info() method of the
+-        object returned by urllib.urlopen()
+-        '''
+-        filespec = urllib.urlretrieve(urlunparse(url))
+-        return filespec
+-        
+-    def _url(self, source):
+-        '''Get the source URL (or None).'''
+-        url = urlparse(source)
+-        if url.scheme == "" or url.scheme == "file":
+-            # sanitize file url and check for file to be available.
+-            url = urlparse("file:%s" %
+-                           (self.__find_file(self._texts_dirs, os.path.normpath(url.path)),
+-                           ))
+-        else:
+-            pass
+-        return url
+-        
+ 
+     def filter(self, _sources, _args):
+         '''This is called to fetch and filter the include text.'''
+diff --git a/rmtoo/lib/IncludeText.py b/rmtoo/lib/IncludeText.py
+index 945a3c7..ea99637 100644
+--- a/rmtoo/lib/IncludeText.py
++++ b/rmtoo/lib/IncludeText.py
+@@ -83,7 +83,7 @@ class IncludeText:
+ 
+     def get_text_as_markdown(self):
+         '''Get content as markdown text.
+-        Returns text and valid flag.
++        Returns text.
+         '''
+         return (self.__include_text_as_markdown)
+ 
+diff --git a/rmtoo/lib/Pandoc.py b/rmtoo/lib/Pandoc.py
+new file mode 100644
+index 0000000..61f3510
+--- /dev/null
++++ b/rmtoo/lib/Pandoc.py
+@@ -0,0 +1,1037 @@
++'''
++ rmtoo
++   Free and Open Source Requirements Management Tool
++   
++Pandoc markdown support.
++  
++ (c) by Bernhard Noelte
++
++ For licensing details see COPYING
++'''
++
++import os
++import sys
++import subprocess
++import glob
++import re
++import json
++import mimetypes
++import urllib
++from urlparse import urlparse,urlunparse
++from datetime import date
++
++from rmtoo.lib.Requirement import Requirement
++from rmtoo.lib.Constraints import Constraints
++from rmtoo.lib.TestCases import TestCases
++from rmtoo.lib.RMTException import RMTException
++from rmtoo.lib.logging import tracer
++
++
++# Amend mimetypes to also include markdown
++# Pandoc uses markdown !-))
++mimetypes.add_type("text/markdown", ".markdown", False)
++mimetypes.add_type("text/markdown", ".mdown", False)
++mimetypes.add_type("text/markdown", ".mkdn", False)
++mimetypes.add_type("text/markdown", ".md", False)
++mimetypes.add_type("text/markdown", ".mkd", False)
++mimetypes.add_type("text/markdown", ".mdwn", False)
++mimetypes.add_type("text/markdown", ".mdtxt", False)
++mimetypes.add_type("text/markdown", ".mdtext", False)
++
++
++class PandocFile:
++    ''' A Pandoc file is a local copy of the source file.
++    If possible the local copy is not a copy but the source file.
++    For some file types local copies are made in distinct output
++    directories to enable HTML generation with relative pathes that
++    link to directories (image/*, css/*) relative to the HTML main file.
++    '''
++
++    def __init__(self, oconfig, source):
++	''' Set up a pandoc file.
++	oconfig needed for search pathes.
++	'''
++        tracer.debug("Called.")
++        # Initialize file and remember output configuration.
++        # Create list of root directories for files
++        root_dirs = []
++        if oconfig.is_available('texts_dirs'):
++            root_dirs += oconfig.get_rvalue('texts_dirs')
++        # Retrieve the file and remember file specification and mimetype
++        self._filespec, self._mimetype = self.__retrieve(root_dirs, source, 
++							 oconfig.get_rvalue('output_image_path'),
++							 oconfig.get_rvalue('output_css_path'))
++	self._relpath = os.path.relpath(self._filespec[0], oconfig.get_rvalue('output_directory'))
++
++
++    def __find_file(self, root_dirs, filename):
++        ''' Find a filename in the list of root directories
++        The filename may either be a pure name or some relative/ absolute path.
++        '''
++        if os.path.isabs(filename):
++            if os.path.isfile(filename):
++                return filename
++            else:
++                raise RMTException(115, "File not found [%s]" % filename,
++                                   self.__class__.__name__)
++        for root_path in root_dirs:
++            for root, dirnames, files in os.walk(os.path.normpath(root_path)):
++                searchfile = os.path.join(root, filename)
++                if os.path.isfile(searchfile) == True:
++                    return searchfile
++        raise RMTException(115, "File not found [%s]" % filename,
++                           self.__class__.__name__)
++
++    def __retrieve(self, root_dirs, source, image_cache_dir, css_cache_dir):
++        ''' Retrieve the file from the source. 
++        Return a tuple (filename, headers) where filename is the local file name under
++        which the object can be found, and headers is whatever the info() method of the
++        object returned by urllib.urlopen()
++        '''
++        url = urlparse(source)
++        if url.scheme == "" or url.scheme == "file":
++            # sanitize file url and check for file to be available.
++            url = urlparse("file:%s" %
++                           (self.__find_file(root_dirs, os.path.normpath(url.path)),
++                           ))
++	source = urlunparse(url)
++	mimetype = mimetypes.guess_type(source, False)[0]
++	if mimetype in ["image/jpeg", "image/png", "image/gif"]:
++	    # image files shall be cached in the image directory of the output directory.
++	    # This is for later use by html.
++	    cachefile = os.path.join(image_cache_dir, os.path.basename(url[2]))
++	    if os.path.normpath(url.path) == cachefile:
++		# already cached in image directory
++		# calling urlretrieve with path to cache directory would confuse urlretriev.
++		filespec = (cachefile, "cached")
++	    else:
++		filespec = urllib.urlretrieve(source, cachefile)
++	elif mimetype in ["text/css"]:
++	    # css files shall be cached in the css directory of the output directory.
++	    # This is for later use by html.
++	    cachefile = os.path.join(css_cache_dir, os.path.basename(url[2]))
++	    if os.path.normpath(url.path) == cachefile:
++		# already cached in css directory
++		# calling urlretrieve with path to cache directory would confuse urlretriev.
++		filespec = (cachefile, "cached")
++	    else:
++		filespec = urllib.urlretrieve(source, cachefile)
++	else:
++	    # can be cached elsewhere or not altogether
++	    filespec = urllib.urlretrieve(source)
++        return filespec, mimetype
++      
++    def filespec(self):
++        ''' Return a tuple (filename, headers) where filename is the local file name under
++        which the object can be found, and headers is whatever the info() method of the
++        object returned by urllib.urlopen()
++        '''
++        return self._filespec
++      
++    def mimetype(self):
++	''' Return mimetype of file.'''
++	return self._mimetype
++      
++    def relpath(self):
++	''' Return relative path of file to output_directory'''
++	return self._relpath
++      
++    def abspath(self):
++	''' Return absolute path of file'''
++	return self._filespec[0]
++      
++    def filename(self):
++	''' Return name of file (incl. extension).'''
++	return os.path.basename(self._relpath)
++
++
++
++def PandocElement(element_type, numargs):
++    def fun(*args):
++	lenargs = len(args)
++	if lenargs != numargs:
++	    raise(element_type + ' expects ' + str(numargs) + ' arguments, but given ' +
++		  str(lenargs))
++	if len(args) == 1:
++	    xs = args[0]
++	else:
++	    xs = args
++	return {'t': element_type, 'c': xs}
++    return fun
++
++
++class PandocAST:
++  
++    # Constructors for block elements
++    Plain = PandocElement('Plain',1)
++    Para = PandocElement('Para',1)
++    CodeBlock = PandocElement('CodeBlock',2)
++    RawBlock = PandocElement('RawBlock',2)
++    BlockQuote = PandocElement('BlockQuote',1)
++    OrderedList = PandocElement('OrderedList',2)
++    BulletList = PandocElement('BulletList',1)
++    DefinitionList = PandocElement('DefinitionList',1)
++    Header = PandocElement('Header',3)
++    HorizontalRule = PandocElement('HorizontalRule',0)
++    Table = PandocElement('Table',5)
++    Div = PandocElement('Div',2)
++    Null = PandocElement('Null',0)
++
++    # Constructors for inline elements
++    Str = PandocElement('Str',1)
++    Emph = PandocElement('Emph',1)
++    Strong = PandocElement('Strong',1)
++    Strikeout = PandocElement('Strikeout',1)
++    Superscript = PandocElement('Superscript',1)
++    Subscript = PandocElement('Subscript',1)
++    SmallCaps = PandocElement('SmallCaps',1)
++    Quoted = PandocElement('Quoted',2)
++    Cite = PandocElement('Cite',2)
++    Code = PandocElement('Code',2)
++    Space = PandocElement('Space',0)
++    LineBreak = PandocElement('LineBreak',0)
++    Math = PandocElement('Math',2)
++    RawInline = PandocElement('RawInline',2)
++    Link = PandocElement('Link',2)
++    Image = PandocElement('Image',2)
++    Note = PandocElement('Note',1)
++    Span = PandocElement('Span',2)
++
++    @staticmethod
++    def walk(x, action, format, meta):
++        """Walk a tree, applying an action to every object.
++        Returns a modified tree.
++        """
++        if isinstance(x, list):
++            array = []
++            for item in x:
++		if isinstance(item, dict) and 't' in item:
++		    res = action(item['t'], item['c'], format, meta)
++		    if res is None:
++			array.append(PandocAST.walk(item, action, format, meta))
++		    elif isinstance(res, list):
++			for z in res:
++			    array.append(PandocAST.walk(z, action, format, meta))
++		    else:
++			array.append(PandocAST.walk(res, action, format, meta))
++		else:
++		    array.append(PandocAST.walk(item, action, format, meta))
++            return array
++        elif isinstance(x, dict):
++            obj = {}
++            for k in x:
++                obj[k] = PandocAST.walk(x[k], action, format, meta)
++            return obj
++        else:
++            return x
++
++    @staticmethod
++    def toJSONFilter(action, format):
++        """Converts an action into a filter that reads a JSON-formatted
++        pandoc document from stdin, transforms it by walking the tree
++        with the action, and returns a new JSON-formatted pandoc document
++        to stdout.  The argument is a function action(key, value, format, meta),
++        where key is the type of the pandoc object (e.g. 'Str', 'Para'),
++        value is the contents of the object (e.g. a string for 'Str',
++        a list of inline elements for 'Para'), format is the target
++        output format, and meta is the document's metadata.
++        If the function returns None, the object to which it applies
++        will remain unchanged.  If it returns an object, the object will
++        be replaced.  If it returns a list, the list will be spliced in to
++        the list to which the target object belongs.  (So, returning an
++        empty list deletes the object.)
++        """
++        doc = json.loads(sys.stdin.read())
++        altered = PandocAST.walk(doc, action, format, doc[0]['unMeta'])
++        json.dump(altered, sys.stdout)
++        
++    @staticmethod
++    def stringify(x):
++        """Walks the tree x and returns concatenated string content,
++        leaving out all formatting.
++        """
++        result = []
++        def go(key, val, format, meta):
++            if key == 'Str':
++                result.append(val)
++            elif key == 'Code':
++                result.append(val[1])
++            elif key == 'Math':
++                result.append(val[1])
++            elif key == 'LineBreak':
++                result.append(" ")
++            elif key == 'Space':
++                result.append(" ")
++        PandocAST.walk(x, go, "", {})
++        return ''.join(result)
++
++    @staticmethod
++    def attributes(attrs):
++        """Returns an attribute list, constructed from the
++        dictionary attrs.
++        """
++        attrs = attrs or {}
++        ident = attrs.get("id","")
++        classes = attrs.get("classes",[])
++        keyvals = [[x,attrs[x]] for x in attrs if (x != "classes" and x != "id")]
++        return [ident, classes, keyvals]
++
++
++class PandocRun:
++    @staticmethod
++    def convert(reader, processor, source, to, format=None, extra_args=()):
++        '''Converts given `source` from `format` `to` another. `source` may be either a file path or a string to be converted.
++        It's possible to pass `extra_args` if needed. In case `format` is not provided, it will try to invert the format based on given `source`.
++
++        Raises OSError if pandoc is not found! Make sure it has been installed and is available at path.
++        '''
++        source, format = reader(source, format)
++
++        formats = {
++            'dbk': 'docbook',
++            'md': 'markdown',
++            'rest': 'rst',
++            'tex': 'latex',
++        }
++
++        format = formats.get(format, format)
++        to = formats.get(to, to)
++
++        if not format:
++            raise RuntimeError('Missing format!')
++
++        from_formats, to_formats = get_pandoc_formats()
++
++        if format not in from_formats:
++            raise RuntimeError('Invalid input format! Expected one of these: ' + ', '.join(from_formats))
++
++        if to not in to_formats:
++            raise RuntimeError('Invalid to format! Expected one of these: ' + ', '.join(to_formats))
++
++        return processor(source, to, format, extra_args)
++
++    def _read_file(source, format):
++        if os.path.exists(source):
++            with open(source) as f:
++                format = format or os.path.splitext(source)[1].strip('.')
++                source = f.read()
++
++        return source, format
++    
++    @staticmethod
++    def process_file(source, to, format, extra_args, working_dir):
++        args = ['pandoc', '--from=' + format, '--to=' + to]
++        args.extend(extra_args)
++
++	if working_dir == None:
++	    working_dir = os.getcwd()
++        p = subprocess.Popen(
++                args,
++                stdin=subprocess.PIPE,
++                stdout=subprocess.PIPE,
++                cwd=working_dir
++                )
++
++        return p.communicate(source.encode('utf-8'))[0].decode('utf-8')
++
++    @staticmethod
++    def get_formats():
++        '''
++        Dynamic preprocessor for Pandoc formats.
++        Return 2 lists. "from_formats" and "to_formats".
++        ''' 
++        try:
++            p = subprocess.Popen(
++                    ['pandoc', '-h'],
++                    stdin=subprocess.PIPE,
++                    stdout=subprocess.PIPE)
++        except OSError:
++            raise OSError("You probably do not have pandoc installed.")
++        
++        help_text = p.communicate()[0].decode().splitlines(False)
++        txt = ' '.join(help_text[1:help_text.index('Options:')])
++
++        aux = txt.split('Output formats: ')
++        in_ = aux[0].split('Input formats: ')[1].split(',')
++        out = aux[1].split(',')
++
++        return [f.strip() for f in in_], [f.strip() for f in out]
++
++
++# Pandoc Markdown Handling
++class PandocMarkdown:
++    header_level_markup = [
++        "#",
++        "##",
++        "###",
++        "####",
++        "#####",
++        "######",
++        "#######",
++        "########",
++        "#########",
++        "##########",
++        "###########",
++        "############",
++        "#############" ]
++    
++    bullet_list_markup = "  * "
++
++    __re_header_markup_start = re.compile(r'^#', re.MULTILINE)
++    # regular expression for image ![caption](url alternate)
++    # \1 == caption
++    # \2 == url
++    # \3 == alternate
++    __re_image_markup = re.compile(r'\!\[(.+)\]\s*\(([^\s]+)\s*(.*)\)', re.MULTILINE)
++    
++
++    def __init__(self):
++        '''Create a pandoc1 markdown executor.
++        '''
++        tracer.debug("Called")
++        # Ouput configuration
++        self._config = None
++        # File descriptor of output file
++        self.__fd = None
++        # section indention level
++        self.__section_level = 0
++        # Stack of section types
++        self.__section_stack = []
++        # Root directory of rmtoo
++        self.__rmtoo_root = self.__rmtoo_root_find()
++
++    def __rmtoo_root_find(self):
++	''' Find the root directory of the rmtoo installation. '''
++	# This __file__ is in <rmtoo_root>/rmtoo/lib/Pandoc.py.
++	directory = os.path.dirname(os.path.abspath(__file__))
++	directory, tail = os.path.split(directory)
++	assert tail == "lib"
++	directory, tail = os.path.split(directory)
++	assert tail == "rmtoo"
++	return directory
++	
++    def __output_mkdirs(self):
++	'''If not already there, create the directories.'''
++	for directory in [self.__output_directory,
++			  self.__output_css_path,
++			  self.__output_image_path]:
++	    try:
++		os.makedirs(directory)
++	    except OSError, ose:
++		# It's ok if already there
++		pass
++
++    def __output_find_css_default_files(self):
++	''' Find the default css files of rmtoo pandoc.'''
++	# Default files are in <rmtoo_root>/contrib/template_project/pandoc
++	output_css_files = []
++	default_css_dir = os.path.join(self.__rmtoo_root, "contrib", "template_project", "pandoc")
++	css_pathes = glob.iglob("%s/*.css" % default_css_dir)
++	# Assure css file is available in css directory for html output
++	for css_path in css_pathes:
++	    # Retrieve css file
++	    css_file = PandocFile(self._config, css_path)
++	    if css_file.filename == "main.css":
++	    	# if there is a main.css make it the first one one the list.
++		# Assures it is referenced from html
++		output_css_files.prepend(css_file.relpath())
++	    else:
++		output_css_files.append(css_file.relpath())
++	return output_css_files
++
++    def __output_find_css_files(self):
++	''' Find the css files as specified in config file.'''
++	output_css_files = []
++	# Assure css file is available in css directory for html output
++	for css_path in self._config.get_rvalue('output_css_files'):
++	    # Retrieve css file
++	    css_file = PandocFile(self._config, css_path)
++	    output_css_files.append(css_file.relpath())
++	return output_css_files
++
++    def output_pre(self, oconfig, output_name):
++        ''' Prepare everything for output.
++        output_name - will be used as filename for output files for md, html, pdf.
++        Other info is taken from output configuration.
++        '''
++        tracer.debug("Called")
++        # Remember the most important.
++        self._config = oconfig
++        self.__section_level = 0
++        self.__section_class_stack = []
++        
++	# -- Do all the configuration ---
++        
++        # Output directory - all other ouput directories and files are relative to this one.
++        if self._config.is_available('output_directory'):
++            self.__output_directory = self._config.get_rvalue('output_directory')
++        else:
++	    raise RMTException(119, "Pandoc output directory not specified. Please add to config file.",
++			       self.__class__.__name__)
++        if self._config.is_available('output_cover_image'):
++            self.__output_cover_image = self._config.get_rvalue('output_cover_image')
++        else:
++            self.__output_cover_image = None
++        if self._config.is_available('output_template_tex'):
++            self.__output_template_tex = self._config.get_rvalue('output_template_tex')
++        else:
++            self.__output_template_tex = None
++
++	# Some derived directories, make them known in the configuration - e.g for filters, ...
++	
++	# for image files
++        if not self._config.is_available('output_image_directory'):
++	    self._config.set_value("output_image_directory", "image") 
++	self.__output_image_directory = self._config.get_rvalue('output_image_directory')
++	self.__output_image_path = os.path.join(self.__output_directory,
++					        self.__output_image_directory)
++	self._config.set_value("output_image_path", self.__output_image_path) 
++
++	# For css files (html)
++        if not self._config.is_available('output_css_directory'):
++	    self._config.set_value("output_css_directory", "css") 
++	self.__output_css_directory = self._config.get_rvalue('output_css_directory')
++	self.__output_css_path = os.path.join(self.__output_directory,
++					      self.__output_css_directory)
++	self._config.set_value("output_css_path", self.__output_css_path)
++        if not self._config.is_available('output_css_files'):
++	    self.__output_css_files = self.__output_find_css_default_files()
++	else:
++	    self.__output_css_files = self.__output_find_css_files()
++	
++	# Other values are set on topic_set_pre - these are only default values.
++	self.__output_filename_md = os.path.join(self.__output_directory, output_name + ".md") 
++	self.__output_filename_pdf = os.path.join(self.__output_directory, output_name + ".pdf")
++	self.__output_filename_html = os.path.join(self.__output_directory, output_name + ".html")
++        
++        # Assure everything is available
++        self.__output_mkdirs()
++        
++        # Finally open the markdown file as our primary output
++        self.__fd = open(self.__output_filename_md, "w")
++        return self.__fd
++
++    def output_post(self):
++        ''' Close output. '''
++        tracer.debug("Called")
++        # Close main output file for markdown.
++        self.__fd.close()
++        
++        tracer.debug("Generate dependent output.")
++        if len(self.__output_filename_pdf) > 0:
++            self.__fd = open(self.__output_filename_md, "r")
++            # Run process - assure it is run in output directory to make relative path work
++            PandocRun.process_file(self.__fd.read(), "latex", 
++                                   "markdown", 
++                                   ["--standalone", "--smart",
++                                    "--table-of-contents", "--toc-depth=6",
++                                    "--number-sections",
++                                    "--output=%s" % (self.__output_filename_pdf), 
++                                    "--template=%s" % (self.__output_template_tex),
++                                    "--latex-engine=xelatex",
++                                    "-V", "documentclass=report",
++                                    "-V", "mainfont=TeX Gyre Termes", 
++                                    "-V", "papersize=a4paper"
++                                   ],
++				   self.__output_directory)
++            self.__fd.close()
++        if len(self.__output_filename_html) > 0:
++            self.__fd = open(self.__output_filename_md, "r")
++            # Run process - assure it is run in output directory to make relative path work
++            PandocRun.process_file(self.__fd.read(), "html", 
++                                   "markdown", 
++                                   ["--standalone", "--smart",
++                                    "--table-of-contents", "--toc-depth=6",
++                                    "--number-sections",
++                                    "--output=%s" % (self.__output_filename_html),
++                                    "-V", "css=%s" % (self.__output_css_files[0]),
++                                    "-V", 'header-includes=<meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width">'
++                                   ],
++				   self.__output_directory)
++            self.__fd.close()
++
++    def section_pre(self, section_class, title, identifier):
++        ''' Generate start of section. 
++        section_class - Any of MasterTopic, SubTopic, IncludeSubTopic, Requirement, Constraint, Testcase, 
++                               Definition, Rationale, Note, Depends_on, Solved_by, Constrained_by, 
++                               Details, Expected_Result
++        title - Title of the section
++        '''
++        # Call section class specific method
++        method_name = "_%s_pre" % section_class
++        getattr(self, method_name)(title, identifier)
++        # Remember new section class on stack
++        self.__section_class_stack.append(section_class)
++
++    def section_post(self, section_class):
++        ''' Generate end of section. '''
++        ## Remove section class from stack
++        cls = self.__section_class_stack.pop()
++        assert cls == section_class
++        # Call section class specific method
++        method_name = "_%s_post" % section_class
++        getattr(self, method_name)()
++
++    def section_class(self):
++        '''class of current section.'''
++        return self.__section_class_stack[-1]
++
++    def _MasterTopic_pre(self, title, identifier):
++        ''' Start a master topic.'''
++        # No markdown.
++        return
++
++    def _MasterTopic_post(self):
++        ''' End a master topic. '''
++        # No markdown.
++        return
++
++    def _SubTopic_pre(self, title, identifier):
++        ''' Start a sub topic.'''
++        # No markdown.
++        return
++
++    def _SubTopic_post(self):
++        ''' End a sub topic. '''
++        # No markdown.
++        return
++    
++
++    def _IncludeSubTopic_pre(self, title, identifier):
++        ''' Start a sub topic.'''
++        # No markdown.
++        return
++
++    def _IncludeSubTopic_post(self):
++        ''' End a sub topic. '''
++        # No markdown.
++        return
++
++    def _Topic_pre(self, title, identifier):
++        ''' Start a topic.'''
++        # Do not output header
++        # - for master topic, as the master topic is the document
++        # - for IncludeTopic:, as this is explicitly requested by this directive.
++        if self.__section_class_stack[-1] == "SubTopic":
++            # Only write headers in subtopic environment
++            self.header(title, identifier)
++            self.__section_level += 1
++
++    def _Topic_post(self):
++        ''' End a topic. '''
++        if self.__section_class_stack[-1] == "SubTopic":
++            self.__section_level -= 1
++
++    def _Requirement_pre(self, title, identifier):
++        ''' Start a requirement.'''
++        self.header(title, identifier)
++        self.__section_level += 1
++
++    def _Requirement_post(self):
++        ''' End a requirement. '''
++        self.__section_level -= 1
++
++    def _Constraint_pre(self, title, identifier):
++        ''' Start a constraint.'''
++        self.header(title, identifier)
++        self.__section_level += 1
++
++    def _Constraint_post(self):
++        ''' End a constraint. '''
++        self.__section_level -= 1
++
++    def _Testcase_pre(self, title, identifier):
++        ''' Start a testcase.'''
++        self.header(title, identifier)
++        self.__section_level += 1
++
++    def _Testcase_post(self):
++        ''' End a testcase. '''
++        self.__section_level -= 1
++
++    def _Description_pre(self, title, identifier):
++        ''' Start a description.
++        Maybe for a requirement, constraint, testcase
++        '''
++        # Descriptions do not get a header
++        return
++
++    def _Description_post(self):
++        ''' End a description. '''
++        return
++
++    def _Rationale_pre(self, title, identifier):
++        ''' Start a rationale.
++        Maybe for a requirement, constraint, testcase
++        '''
++        self.markdown("\n**Rationale:**\n\n")
++
++    def _Rationale_post(self):
++        ''' End a rationale. '''
++        return
++
++    def _Note_pre(self, title, identifier):
++        ''' Start a note.
++        Maybe for a requirement, constraint, testcase
++        '''
++        self.markdown("\n**Note:**\n\n")
++        
++    def _Note_post(self):
++        ''' End a note. '''
++        return
++
++    def _Depends_on_pre(self, title, identifier):
++        ''' Start a Depends on section.
++        Maybe for a requirement, constraint, testcase
++        '''
++        self.markdown("\n**Depends on:**\n\n")
++
++    def _Depends_on_post(self):
++        ''' End a Depends on section. '''
++        return
++
++    def _Solved_by_pre(self, title, identifier):
++        ''' Start a Solved by section.
++        Maybe for a requirement, constraint, testcase
++        '''
++        self.markdown("\n**Solved by:**\n\n")
++
++    def _Solved_by_post(self):
++        ''' End a Solved by section. '''
++        return
++
++    def _Constrained_by_pre(self, title, identifier):
++        ''' Start a Constrained by section.
++        Maybe for a requirement, constraint, testcase
++        '''
++        self.markdown("\n**Constrained by:**\n\n")
++
++    def _Constrained_by_post(self):
++        ''' End a Constrained by section. '''
++        return
++
++    def _Tested_by_pre(self, title, identifier):
++        ''' Start a Tested by section.
++        Maybe for a requirement, constraint, testcase
++        '''
++        self.markdown("\n**Constrained by:**\n\n")
++
++    def _Tested_by_post(self):
++        ''' End a Tested by section. '''
++        return
++
++    def _Details_pre(self, title, identifier):
++        ''' Start a details section.
++        for a requirement, constraint, testcase
++        '''
++        # No header for details
++        return
++
++    def _Details_post(self):
++        ''' End a details section. '''
++        return
++
++    def _Expected_Result_pre(self, title, identifier):
++        ''' Start a Expected result section.
++        For a testcase
++        '''
++        self.markdown("\n**Expected result:**\n\n")
++
++    def _Expected_Result_post(self):
++        ''' End a Solved by section. '''
++        return
++    
++    def header(self, title, identifier):
++        '''Output a header.'''
++        # Note: Pandoc requires a blank line before a header
++        if len(identifier) > 0:
++            self.__fd.write("\n%s %s {#%s}\n\n" % (PandocMarkdown.header_level_markup[self.__section_level], title, identifier))
++        else:
++            self.__fd.write("\n%s %s\n\n" % (PandocMarkdown.header_level_markup[self.__section_level], title))
++
++    def markdown(self, text):
++        '''Output markdown text.'''
++        self.__fd.write("%s" % (text))
++        
++    def plain_text(self, text):
++        '''Output plain text.'''
++        # TODO convert plain text to markdown
++        self.__fd.write("%s" % (text))
++
++    def fragment(self, fragment):
++        '''Output a markdown fragment with header levels adjusted by level.'''
++        if False:
++	    # -- This only works with pandoc >= 1.12
++	    # -- and it is slow
++	    
++	    # A function to adjust pandoc markdown
++	    def fragment_adjust(key, value, format, meta):
++		if key == 'Image':
++		    print(key)
++		    # print(value)
++		return None
++	    
++	    # A process that reads markdown from stdin and creates json on stdout
++	    process_md2json = subprocess.Popen(
++		args = ['pandoc', '--from=markdown', '--to=json'],
++		stdin = subprocess.PIPE,
++		stdout = subprocess.PIPE)
++
++	    # A process that reads json from stdin and creates markdown on stdout
++	    # It also adjusts the header type (atx) and header level.
++	    process_json2md = subprocess.Popen(
++		args = ['pandoc', '--from=json', '--to=markdown', 
++			'--atx-headers', '--base-header-level=%d' % (self.__section_level + 1),
++		      ],
++		stdin = subprocess.PIPE,
++		stdout = subprocess.PIPE)
++	    
++	    # Process everything
++	    fragment_json = process_md2json.communicate(fragment.encode('utf-8'))[0].decode('utf-8')
++	    fragment_ast = json.loads(fragment_json)
++	    fragment_ast_altered = PandocAST.walk(fragment_ast, fragment_adjust, "", {})
++	    fragment_json_altered = json.dumps(fragment_ast_altered)
++	    fragment_altered = process_json2md.communicate(fragment_json_altered.encode('utf-8'))[0].decode('utf-8')
++
++	    # write out result
++	    self.__fd.write("%s\n\n" % (fragment_altered))
++	
++	else:
++	    # ---------- Much faster, but can not do everything -----------------.
++	    
++	    # Find all images and replace with absolute path to image
++	    image_links = PandocMarkdown.__re_image_markup.finditer(fragment)
++	    for image_link in image_links:
++		# Retrieve the file
++		image_file = PandocFile(self._config, image_link.group(2))
++		# Replace image link with local file path
++		# print("%s: 1 [%s] 2 [%s] 3 [%s]" % (image_link.group(0), image_link.group(1), image_link.group(2), image_link.group(3)))
++		fragment = fragment.replace("%s" % image_link.group(0), "![%s](%s %s)" % (image_link.group(1), image_file.relpath(), 			        
++									                  image_link.group(3)))
++	    
++	    # Adjust header levels
++	    if self.__section_level > 0:
++	        fragment = PandocMarkdown.__re_header_markup_start.sub(PandocMarkdown.header_level_markup[self.__section_level], fragment)
++	        
++	    self.__fd.write("%s\n\n" % (fragment))
++
++    def internal_link(self, name, identifier):
++        '''Output an internal link.'''
++        self.__fd.write("[%s](#%s)" % (name, identifier))
++        
++    def comment(self, comment):
++        '''Output a comment. The comment will not produce any output by pandoc. '''
++        self.__fd.write("<!-- %s -->\n\n" % (comment))
++
++    def link_list(self, link_list, format=None):
++        '''Output a link list formatted acc. to format
++        from a list of link specification tuples (link text, link uri | internal reference, link title).
++        internal reference must be of the form #re-fe-re-nc-e
++        uri may be any URI
++        The link text is what shows up in a document.
++        '''
++        self.__fd.write("\n") # Make an empty line. Most list formats need that.
++        line = ""
++        link_spec = ()
++        for link_spec in link_list:
++            link = "[%s](%s" % (link_spec[0], link_spec[1])
++            if link_spec[2] != None and len(link_spec[2]) > 0:
++                link += " \"%s\"" % (link_spec[2])
++            link += ")"
++            if format == "BulletList":
++                # Bullet list
++                self.__fd.write("%s%s\n" % (PandocMarkdown.bullet_list_markup, link))
++            else:
++                # Comma separated list
++                if len(line) > 0:
++                    if len(line) + len(link) > 80 - 2:
++                        self.__fd.write(line + ",\n")
++                        line = ""
++                    else:
++                        line += ", "
++                line += link
++        if len(line) > 0:
++            self.__fd.write(line)
++        self.__fd.write("\n\n")
++
++    def title_block(self, title, author, date, cover_image):
++        '''Output a title block. '''
++        # YAML metadata block. (Version 1.12 needed)
++        self.__fd.write("% {0}\n% {1}\n% {2}\n\n".format(title, author, date.isoformat()))
++        #self.__fd.write("---\n")
++        #self.__fd.write("title:\n- type: main\n  text: {0}\n".format(title))
++        #self.__fd.write("creator:\n- role: author\n  text: {0}\n".format(author))
++        #self.__fd.write("date: {0}\n".format(date.isoformat()))
++        #if cover_image != None and len(cover_image) > 0:
++        #    self.__fd.write("cover-image: {0}\n".format(cover_image))
++        #self.__fd.write("---\n")
++        
++    def simple_table(self, simple_table, with_header=True):
++        '''Output a markdown table from a simple table.
++        Simple tables are just a list of rows, that are a list of cells.
++        The first line is used as header if with_header is set to True.
++        '''
++        # Split the simple table into 2 dimensional array of rows with cells
++        table1 = simple_table
++        column_count = len(table1[0])
++        bar_count = column_count + 1
++        # header separator
++        header_separator = '|:--' * column_count + '|'
++        # Join cells of a row with a bar in between
++        # Strip any trailing white space in a cell
++        table2 = ['|' + '|'.join([cell.rstrip() if cell != ' ' else cell for cell in row]) + '|' for row in table1]
++        # Fix rows to have the exact number of cells in each
++        for row in enumerate(table2):
++            row_count = row[1].count('|')
++            if row_count < bar_count:
++                table2[row[0]]+='|' * (bar_count - row_count)
++        # insert separator and join list of lines with line breaks.
++        if with_header:
++            table2.insert(1, header_separator)
++        else:
++            table2.insert(0, header_separator)
++        table3 = '\n'.join(table2)
++        # Write to file
++        self.__fd.write("%s\n" % (table3))
++
++
++class PandocUID:
++    # regular expressions for uid generation
++    __re_formatting = re.compile(r'(\[^\]*]|\{[^\}]*\}|\([^\)]\))')
++    __re_punctations = re.compile(r'[\s.,;\:\!\?\#\~\=\%\^\$\*\+\/\{\}\[\]\\\|\(\)\"\']')
++    __re_multi_hypens = re.compile(r'--+')
++    __re_leading_hypen_digit = re.compile(r'^[\d-]+')
++    __re_trailing_hypen = re.compile(r'[-]+$')
++
++    @staticmethod
++    def __uid(identifier):
++        '''Generate unique identifier.'''
++        uid = identifier.lower()
++        uid = PandocUID.__re_formatting.sub('-', uid)
++        uid = PandocUID.__re_punctations.sub('-', uid)
++        uid = PandocUID.__re_multi_hypens.sub('-', uid)
++        uid = PandocUID.__re_leading_hypen_digit.sub('', uid)
++        uid = PandocUID.__re_trailing_hypen.sub('', uid)
++        return uid
++
++    @staticmethod
++    def topic(topic):
++        '''Generate unique identifier from topic.'''
++        identifier = topic.get_name() + " " + topic.get_topic_name()
++        return "topic-" + PandocUID.__uid(identifier)
++    
++    @staticmethod
++    def topic_set(topic_set):
++        '''Generate unique identifier from topic set.'''
++        # Use requirement name and topic as identifier.
++        identifier = topic_set.get_master_topic().get_topic_name()
++        return "topic-set-" + PandocUID.__uid(identifier)
++    
++    @staticmethod
++    def topic_set_constraints(toptic_set):
++        '''Generate unique identifier for constraints of topic set.'''
++        # Use requirement name and topic as identifier.
++        identifier = topic_set.get_name()
++        return PandocUID.topic_set(topic_set) + "-constraints"
++    
++    @staticmethod
++    def topic_set_testcases(toptic_set):
++        '''Generate unique identifier for constraints of topic set.'''
++        # Use requirement name and topic as identifier.
++        identifier = topic_set.get_name()
++        return PandocUID.topic_set(topic_set) + "-testcases"
++
++    @staticmethod
++    def constraint(ctr):
++        '''Generate unique constraint identifier from constraint.'''
++        identifier = ctr.get_value("Name").get_content()
++        return "constraint-" + PandocUID.__uid(identifier)
++
++    @staticmethod
++    def constraint_description(ctr):
++        '''Generate unique constraint identifier from constraint.'''
++        return PandocUID.constraint(ctr) + "-description"
++
++    @staticmethod
++    def constraint_rationale(ctr):
++        '''Generate unique constraint identifier from constraint.'''
++        return PandocUID.constraint(ctr) + "-nationale"
++
++    @staticmethod
++    def constraint_note(ctr):
++        '''Generate unique constraint identifier from constraint.'''
++        return PandocUID.constraint(ctr) + "-note"
++
++    @staticmethod
++    def constraint_requirements(ctr):
++        '''Generate unique constraint identifier from constraint.'''
++        return PandocUID.constraint(ctr) + "-requirements"
++
++    @staticmethod
++    def testcase(testcase):
++        '''Generate unique testcase identifier from testcase.'''
++        identifier = testcase.get_value("Name").get_content()
++        return "testcase-" + PandocUID.__uid(identifier)
++
++    @staticmethod
++    def testcase_description(testcase):
++        '''Generate unique constraint identifier from constraint.'''
++        return PandocUID.testcase(testcase) + "-description"
++
++    @staticmethod
++    def testcase_expectedresult(testcase):
++        '''Generate unique constraint identifier from constraint.'''
++        return PandocUID.testcase(testcase) + "-expected-result"
++
++    @staticmethod
++    def testcase_rationale(testcase):
++        '''Generate unique constraint identifier from constraint.'''
++        return PandocUID.testcase(testcase) + "-rationale"
++
++    @staticmethod
++    def testcase_note(testcase):
++        '''Generate unique constraint identifier from constraint.'''
++        return PandocUID.testcase(testcase) + "-note"
++    
++    @staticmethod
++    def requirement(req):
++        '''Generate unique requirement identifier from requirement.'''
++        # Use requirement name and topic as identifier.
++        identifier = req.get_value("Topic") + " " + req.get_value("Name").get_content()
++        return "requirement-" + PandocUID.__uid(identifier)
++
++    @staticmethod
++    def requirement_description(req):
++        '''Generate unique requirement identifier from requirement.'''
++        return PandocUID.requirement(req) + "-description"
++    
++    @staticmethod
++    def requirement_rationale(req):
++        '''Generate unique requirement identifier from requirement.'''
++        return PandocUID.requirement(req) + "-rationale"
++    
++    @staticmethod
++    def requirement_note(req):
++        '''Generate unique requirement identifier from requirement.'''
++        return PandocUID.requirement(req) + "-note"
++    
++    @staticmethod
++    def requirement_depends_on(req):
++        '''Generate unique requirement identifier from requirement.'''
++        return PandocUID.requirement(req) + "-depends-on"
++    
++    @staticmethod
++    def requirement_solved_by(req):
++        '''Generate unique requirement identifier from requirement.'''
++        return PandocUID.requirement(req) + "-solved-by"
++
++    @staticmethod
++    def requirement_constrained_by(req):
++        '''Generate unique requirement identifier from requirement.'''
++        return PandocUID.requirement(req) + "-constrained-by"
++    
++    @staticmethod
++    def requirement_tested_by(req):
++        '''Generate unique requirement identifier from requirement.'''
++        return PandocUID.requirement(req) + "-tested-by"
++
+diff --git a/rmtoo/outputs/pandoc1.py b/rmtoo/outputs/pandoc1.py
+index a1352be..c7f5e50 100644
+--- a/rmtoo/outputs/pandoc1.py
++++ b/rmtoo/outputs/pandoc1.py
+@@ -16,7 +16,7 @@ import re
+ import json
+ from datetime import date
+ 
+-
++from rmtoo.lib.configuration.Cfg import Cfg
+ from rmtoo.lib.Requirement import Requirement
+ from rmtoo.lib.Constraints import Constraints
+ from rmtoo.lib.TestCases import TestCases
+@@ -26,569 +26,10 @@ from rmtoo.lib.ExecutorTopicContinuum import ExecutorTopicContinuum
+ from rmtoo.lib.logging import tracer
+ from rmtoo.lib.CreateMakeDependencies import CreateMakeDependencies
+ from rmtoo.lib.IncludeText import IncludeText
++from rmtoo.lib.Pandoc import PandocMarkdown, PandocUID, PandocRun
+ 
+ 
+-class PandocRun:
+-    @staticmethod
+-    def convert(reader, processor, source, to, format=None, extra_args=()):
+-        '''Converts given `source` from `format` `to` another. `source` may be either a file path or a string to be converted.
+-        It's possible to pass `extra_args` if needed. In case `format` is not provided, it will try to invert the format based on given `source`.
+-
+-        Raises OSError if pandoc is not found! Make sure it has been installed and is available at path.
+-        '''
+-        source, format = reader(source, format)
+-
+-        formats = {
+-            'dbk': 'docbook',
+-            'md': 'markdown',
+-            'rest': 'rst',
+-            'tex': 'latex',
+-        }
+-
+-        format = formats.get(format, format)
+-        to = formats.get(to, to)
+-
+-        if not format:
+-            raise RuntimeError('Missing format!')
+-
+-        from_formats, to_formats = get_pandoc_formats()
+-
+-        if format not in from_formats:
+-            raise RuntimeError('Invalid input format! Expected one of these: ' + ', '.join(from_formats))
+-
+-        if to not in to_formats:
+-            raise RuntimeError('Invalid to format! Expected one of these: ' + ', '.join(to_formats))
+-
+-        return processor(source, to, format, extra_args)
+-
+-    def _read_file(source, format):
+-        if os.path.exists(source):
+-            with open(source) as f:
+-                format = format or os.path.splitext(source)[1].strip('.')
+-                source = f.read()
+-
+-        return source, format
+-    
+-    @staticmethod
+-    def process_file(source, to, format, extra_args):
+-        args = ['pandoc', '--from=' + format, '--to=' + to]
+-        args.extend(extra_args)
+-
+-        p = subprocess.Popen(
+-                args,
+-                stdin=subprocess.PIPE,
+-                stdout=subprocess.PIPE)
+-
+-        return p.communicate(source.encode('utf-8'))[0].decode('utf-8')
+-
+-    @staticmethod
+-    def get_formats():
+-        '''
+-        Dynamic preprocessor for Pandoc formats.
+-        Return 2 lists. "from_formats" and "to_formats".
+-        ''' 
+-        try:
+-            p = subprocess.Popen(
+-                    ['pandoc', '-h'],
+-                    stdin=subprocess.PIPE,
+-                    stdout=subprocess.PIPE)
+-        except OSError:
+-            raise OSError("You probably do not have pandoc installed.")
+-        
+-        help_text = p.communicate()[0].decode().splitlines(False)
+-        txt = ' '.join(help_text[1:help_text.index('Options:')])
+-
+-        aux = txt.split('Output formats: ')
+-        in_ = aux[0].split('Input formats: ')[1].split(',')
+-        out = aux[1].split(',')
+-
+-        return [f.strip() for f in in_], [f.strip() for f in out]
+-
+-
+-# Pandoc Markdown Handling
+-class PandocMarkdown:
+-    header_level_markup = [
+-        "#",
+-        "##",
+-        "###",
+-        "####",
+-        "#####",
+-        "######",
+-        "#######",
+-        "########",
+-        "#########",
+-        "##########",
+-        "###########",
+-        "############",
+-        "#############" ]
+-    
+-    bullet_list_markup = " * "
+-
+-    __re_header_markup_start = re.compile(r'^#', re.MULTILINE)
+-    
+-
+-    def __init__(self):
+-        '''Create a pandoc1 markdown executor.
+-        '''
+-        tracer.debug("Called")
+-        # File descriptor of output file
+-        self.__fd = None
+-        # section indention level
+-        self.__section_level = 0
+-        # Stack of section types
+-        self.__section_stack = []
+-
+-    def open(self, filename):
+-        ''' Prepare to output to file. '''
+-        self.__fd = open(filename, "w")
+-        # Reset all indexes
+-        self.__section_level = 0
+-        self.__section_class_stack = []
+-        return self.__fd
+-
+-    def close(self):
+-        ''' Close output to file. '''
+-        self.__fd.close()
+-
+-    def section_pre(self, section_class, title, identifier):
+-        ''' Generate start of section. 
+-        section_class - Any of MasterTopic, SubTopic, IncludeSubTopic, Requirement, Constraint, Testcase, 
+-                               Definition, Rationale, Note, Depends_on, Solved_by, Constrained_by, 
+-                               Details, Expected_Result
+-        title - Title of the section
+-        '''
+-        # Call section class specific method
+-        method_name = "_%s_pre" % section_class
+-        getattr(self, method_name)(title, identifier)
+-        # Remember new section class on stack
+-        self.__section_class_stack.append(section_class)
+-
+-    def section_post(self, section_class):
+-        ''' Generate end of section. '''
+-        ## Remove section class from stack
+-        cls = self.__section_class_stack.pop()
+-        assert cls == section_class
+-        # Call section class specific method
+-        method_name = "_%s_post" % section_class
+-        getattr(self, method_name)()
+-
+-    def section_class(self):
+-        '''class of current section.'''
+-        return self.__section_class_stack[-1]
+-
+-    def _MasterTopic_pre(self, title, identifier):
+-        ''' Start a master topic.'''
+-        # No markdown.
+-        return
+-
+-    def _MasterTopic_post(self):
+-        ''' End a master topic. '''
+-        # No markdown.
+-        return
+-
+-    def _SubTopic_pre(self, title, identifier):
+-        ''' Start a sub topic.'''
+-        # No markdown.
+-        return
+-
+-    def _SubTopic_post(self):
+-        ''' End a sub topic. '''
+-        # No markdown.
+-        return
+-    
+-
+-    def _IncludeSubTopic_pre(self, title, identifier):
+-        ''' Start a sub topic.'''
+-        # No markdown.
+-        return
+-
+-    def _IncludeSubTopic_post(self):
+-        ''' End a sub topic. '''
+-        # No markdown.
+-        return
+-
+-    def _Topic_pre(self, title, identifier):
+-        ''' Start a topic.'''
+-        # Do not output header
+-        # - for master topic, as the master topic is the document
+-        # - for IncludeTopic:, as this is explicitly requested by this directive.
+-        if self.__section_class_stack[-1] == "SubTopic":
+-            # Only write headers in subtopic environment
+-            self.header(title, identifier)
+-            self.__section_level += 1
+-
+-    def _Topic_post(self):
+-        ''' End a topic. '''
+-        if self.__section_class_stack[-1] == "SubTopic":
+-            self.__section_level -= 1
+-
+-    def _Requirement_pre(self, title, identifier):
+-        ''' Start a requirement.'''
+-        self.header(title, identifier)
+-        self.__section_level += 1
+-
+-    def _Requirement_post(self):
+-        ''' End a requirement. '''
+-        self.__section_level -= 1
+-
+-    def _Constraint_pre(self, title, identifier):
+-        ''' Start a constraint.'''
+-        self.header(title, identifier)
+-        self.__section_level += 1
+-
+-    def _Constraint_post(self):
+-        ''' End a constraint. '''
+-        self.__section_level -= 1
+-
+-    def _Testcase_pre(self, title, identifier):
+-        ''' Start a testcase.'''
+-        self.header(title, identifier)
+-        self.__section_level += 1
+-
+-    def _Testcase_post(self):
+-        ''' End a testcase. '''
+-        self.__section_level -= 1
+-
+-    def _Description_pre(self, title, identifier):
+-        ''' Start a description.
+-        Maybe for a requirement, constraint, testcase
+-        '''
+-        # Descriptions do not get a header
+-        return
+-
+-    def _Description_post(self):
+-        ''' End a description. '''
+-        return
+-
+-    def _Rationale_pre(self, title, identifier):
+-        ''' Start a rationale.
+-        Maybe for a requirement, constraint, testcase
+-        '''
+-        self.markdown("\n**Rationale:**\n\n")
+-
+-    def _Rationale_post(self):
+-        ''' End a rationale. '''
+-        return
+-
+-    def _Note_pre(self, title, identifier):
+-        ''' Start a note.
+-        Maybe for a requirement, constraint, testcase
+-        '''
+-        self.markdown("\n**Note:**\n\n")
+-        
+-    def _Note_post(self):
+-        ''' End a note. '''
+-        return
+-
+-    def _Depends_on_pre(self, title, identifier):
+-        ''' Start a Depends on section.
+-        Maybe for a requirement, constraint, testcase
+-        '''
+-        self.markdown("\n**Depends on:**\n\n")
+-
+-    def _Depends_on_post(self):
+-        ''' End a Depends on section. '''
+-        return
+-
+-    def _Solved_by_pre(self, title, identifier):
+-        ''' Start a Solved by section.
+-        Maybe for a requirement, constraint, testcase
+-        '''
+-        self.markdown("\n**Solved by:**\n\n")
+-
+-    def _Solved_by_post(self):
+-        ''' End a Solved by section. '''
+-        return
+-
+-    def _Constrained_by_pre(self, title, identifier):
+-        ''' Start a Constrained by section.
+-        Maybe for a requirement, constraint, testcase
+-        '''
+-        self.markdown("\n**Constrained by:**\n\n")
+-
+-    def _Constrained_by_post(self):
+-        ''' End a Constrained by section. '''
+-        return
+-
+-    def _Tested_by_pre(self, title, identifier):
+-        ''' Start a Tested by section.
+-        Maybe for a requirement, constraint, testcase
+-        '''
+-        self.markdown("\n**Constrained by:**\n\n")
+-
+-    def _Tested_by_post(self):
+-        ''' End a Tested by section. '''
+-        return
+-
+-    def _Details_pre(self, title, identifier):
+-        ''' Start a details section.
+-        for a requirement, constraint, testcase
+-        '''
+-        # No header for details
+-        return
+-
+-    def _Details_post(self):
+-        ''' End a details section. '''
+-        return
+-
+-    def _Expected_Result_pre(self, title, identifier):
+-        ''' Start a Expected result section.
+-        For a testcase
+-        '''
+-        self.markdown("\n**Expected result:**\n\n")
+-
+-    def _Expected_Result_post(self):
+-        ''' End a Solved by section. '''
+-        return
+-    
+-    def header(self, title, identifier):
+-        '''Output a header.'''
+-        # Note: Pandoc requires a blank line before a header
+-        if len(identifier) > 0:
+-            self.__fd.write("\n%s %s {#%s}\n\n" % (PandocMarkdown.header_level_markup[self.__section_level], title, identifier))
+-        else:
+-            self.__fd.write("\n%s %s\n\n" % (PandocMarkdown.header_level_markup[self.__section_level], title))
+-
+-    def markdown(self, text):
+-        '''Output markdown text.'''
+-        self.__fd.write("%s" % (text))
+-        
+-    def plain_text(self, text):
+-        '''Output plain text.'''
+-        # TODO convert plain text to markdown
+-        self.__fd.write("%s" % (text))
+-
+-    def fragment(self, fragment):
+-        '''Output a markdown fragment with header levels adjusted by level.'''
+-        if self.__section_level <= 0:
+-            self.__fd.write("%s\n\n" % (fragment))
+-        else:
+-            # Adjust header levels
+-            fragment = PandocMarkdown.__re_header_markup_start.sub(PandocMarkdown.header_level_markup[self.__section_level], fragment)
+-            self.__fd.write("%s\n\n" % (fragment))
+-
+-    def internal_link(self, name, identifier):
+-        '''Output an internal link.'''
+-        self.__fd.write("[%s](#%s)" % (name, identifier))
+-        
+-    def comment(self, comment):
+-        '''Output a comment. The comment will not produce any output by pandoc. '''
+-        self.__fd.write("<!-- %s -->\n\n" % (comment))
+-
+-    def link_list(self, link_list, format=None):
+-        '''Output a link list formatted acc. to format
+-        from a list of link specification tuples (link text, link uri | internal reference, link title).
+-        internal reference must be of the form #re-fe-re-nc-e
+-        uri may be any URI
+-        The link text is what shows up in a document.
+-        '''
+-        self.__fd.write("\n") # Make an empty line. Most list formats need that.
+-        line = ""
+-        link_spec = ()
+-        for link_spec in link_list:
+-            link = "[%s](%s" % (link_spec[0], link_spec[1])
+-            if link_spec[2] != None and len(link_spec[2]) > 0:
+-                link += " \"%s\"" % (link_spec[2])
+-            link += ")"
+-            if format == "BulletList":
+-                # Bullet list
+-                self.__fd.write("%s%s\n" % (PandocMarkdown.bullet_list_markup, link))
+-            else:
+-                # Comma separated list
+-                if len(line) > 0:
+-                    if len(line) + len(link) > 80 - 2:
+-                        self.__fd.write(line + ",\n")
+-                        line = ""
+-                    else:
+-                        line += ", "
+-                line += link
+-        if len(line) > 0:
+-            self.__fd.write(line)
+-        self.__fd.write("\n\n")
+-
+-    def title_block(self, title, author, date, cover_image):
+-        '''Output a title block. '''
+-        # YAML metadata block. (Version 1.12 needed)
+-        self.__fd.write("% {0}\n% {1}\n% {2}\n\n".format(title, author, date.isoformat()))
+-        #self.__fd.write("---\n")
+-        #self.__fd.write("title:\n- type: main\n  text: {0}\n".format(title))
+-        #self.__fd.write("creator:\n- role: author\n  text: {0}\n".format(author))
+-        #self.__fd.write("date: {0}\n".format(date.isoformat()))
+-        #if cover_image != None and len(cover_image) > 0:
+-        #    self.__fd.write("cover-image: {0}\n".format(cover_image))
+-        #self.__fd.write("---\n")
+-        
+-    def simple_table(self, simple_table, with_header=True):
+-        '''Output a markdown table from a simple table.
+-        Simple tables are just a list of rows, that are a list of cells.
+-        The first line is used as header if with_header is set to True.
+-        '''
+-        # Split the simple table into 2 dimensional array of rows with cells
+-        table1 = simple_table
+-        column_count = len(table1[0])
+-        bar_count = column_count + 1
+-        # header separator
+-        header_separator = '|:--' * column_count + '|'
+-        # Join cells of a row with a bar in between
+-        # Strip any trailing white space in a cell
+-        table2 = ['|' + '|'.join([cell.rstrip() if cell != ' ' else cell for cell in row]) + '|' for row in table1]
+-        # Fix rows to have the exact number of cells in each
+-        for row in enumerate(table2):
+-            row_count = row[1].count('|')
+-            if row_count < bar_count:
+-                table2[row[0]]+='|' * (bar_count - row_count)
+-        # insert separator and join list of lines with line breaks.
+-        if with_header:
+-            table2.insert(1, header_separator)
+-        else:
+-            table2.insert(0, header_separator)
+-        table3 = '\n'.join(table2)
+-        # Write to file
+-        self.__fd.write("%s\n" % (table3))
+-
+-
+-class PandocUID:
+-    # regular expressions for uid generation
+-    __re_formatting = re.compile(r'(\[^\]*]|\{[^\}]*\}|\([^\)]\))')
+-    __re_punctations = re.compile(r'[\s.,;\:\!\?\#\~\=\%\^\$\*\+\/\{\}\[\]\\\|\(\)\"\']')
+-    __re_multi_hypens = re.compile(r'--+')
+-    __re_leading_hypen_digit = re.compile(r'^[\d-]+')
+-    __re_trailing_hypen = re.compile(r'[-]+$')
+-
+-    @staticmethod
+-    def __uid(identifier):
+-        '''Generate unique identifier.'''
+-        uid = identifier.lower()
+-        uid = PandocUID.__re_formatting.sub('-', uid)
+-        uid = PandocUID.__re_punctations.sub('-', uid)
+-        uid = PandocUID.__re_multi_hypens.sub('-', uid)
+-        uid = PandocUID.__re_leading_hypen_digit.sub('', uid)
+-        uid = PandocUID.__re_trailing_hypen.sub('', uid)
+-        return uid
+-
+-    @staticmethod
+-    def topic(topic):
+-        '''Generate unique identifier from topic.'''
+-        identifier = topic.get_name() + " " + topic.get_topic_name()
+-        return "topic-" + PandocUID.__uid(identifier)
+-    
+-    @staticmethod
+-    def topic_set(toptic_set):
+-        '''Generate unique identifier from topic set.'''
+-        # Use requirement name and topic as identifier.
+-        identifier = topic_set.get_master_topic().get_topic_name()
+-        return "topic-set-" + PandocUID.__uid(identifier)
+-    
+-    @staticmethod
+-    def topic_set_constraints(toptic_set):
+-        '''Generate unique identifier for constraints of topic set.'''
+-        # Use requirement name and topic as identifier.
+-        identifier = topic_set.get_name()
+-        return PandocUID.topic_set(topic_set) + "-constraints"
+-    
+-    @staticmethod
+-    def topic_set_testcases(toptic_set):
+-        '''Generate unique identifier for constraints of topic set.'''
+-        # Use requirement name and topic as identifier.
+-        identifier = topic_set.get_name()
+-        return PandocUID.topic_set(topic_set) + "-testcases"
+-
+-    @staticmethod
+-    def constraint(ctr):
+-        '''Generate unique constraint identifier from constraint.'''
+-        identifier = ctr.get_value("Name").get_content()
+-        return "constraint-" + PandocUID.__uid(identifier)
+-
+-    @staticmethod
+-    def constraint_description(ctr):
+-        '''Generate unique constraint identifier from constraint.'''
+-        return PandocUID.constraint(ctr) + "-description"
+-
+-    @staticmethod
+-    def constraint_rationale(ctr):
+-        '''Generate unique constraint identifier from constraint.'''
+-        return PandocUID.constraint(ctr) + "-nationale"
+-
+-    @staticmethod
+-    def constraint_note(ctr):
+-        '''Generate unique constraint identifier from constraint.'''
+-        return PandocUID.constraint(ctr) + "-note"
+-
+-    @staticmethod
+-    def constraint_requirements(ctr):
+-        '''Generate unique constraint identifier from constraint.'''
+-        return PandocUID.constraint(ctr) + "-requirements"
+-
+-    @staticmethod
+-    def testcase(testcase):
+-        '''Generate unique testcase identifier from testcase.'''
+-        identifier = testcase.get_value("Name").get_content()
+-        return "testcase-" + PandocUID.__uid(identifier)
+-
+-    @staticmethod
+-    def testcase_description(testcase):
+-        '''Generate unique constraint identifier from constraint.'''
+-        return PandocUID.testcase(testcase) + "-description"
+-
+-    @staticmethod
+-    def testcase_expectedresult(testcase):
+-        '''Generate unique constraint identifier from constraint.'''
+-        return PandocUID.testcase(testcase) + "-expected-result"
+-
+-    @staticmethod
+-    def testcase_rationale(testcase):
+-        '''Generate unique constraint identifier from constraint.'''
+-        return PandocUID.testcase(testcase) + "-rationale"
+-
+-    @staticmethod
+-    def testcase_note(testcase):
+-        '''Generate unique constraint identifier from constraint.'''
+-        return PandocUID.testcase(testcase) + "-note"
+-    
+-    @staticmethod
+-    def requirement(req):
+-        '''Generate unique requirement identifier from requirement.'''
+-        # Use requirement name and topic as identifier.
+-        identifier = req.get_value("Topic") + " " + req.get_value("Name").get_content()
+-        return "requirement-" + PandocUID.__uid(identifier)
+-
+-    @staticmethod
+-    def requirement_description(req):
+-        '''Generate unique requirement identifier from requirement.'''
+-        return PandocUID.requirement(req) + "-description"
+-    
+-    @staticmethod
+-    def requirement_rationale(req):
+-        '''Generate unique requirement identifier from requirement.'''
+-        return PandocUID.requirement(req) + "-rationale"
+-    
+-    @staticmethod
+-    def requirement_note(req):
+-        '''Generate unique requirement identifier from requirement.'''
+-        return PandocUID.requirement(req) + "-note"
+-    
+-    @staticmethod
+-    def requirement_depends_on(req):
+-        '''Generate unique requirement identifier from requirement.'''
+-        return PandocUID.requirement(req) + "-depends-on"
+-    
+-    @staticmethod
+-    def requirement_solved_by(req):
+-        '''Generate unique requirement identifier from requirement.'''
+-        return PandocUID.requirement(req) + "-solved-by"
+-
+-    @staticmethod
+-    def requirement_constrained_by(req):
+-        '''Generate unique requirement identifier from requirement.'''
+-        return PandocUID.requirement(req) + "-constrained-by"
+-    
+-    @staticmethod
+-    def requirement_tested_by(req):
+-        '''Generate unique requirement identifier from requirement.'''
+-        return PandocUID.requirement(req) + "-tested-by"
+-
+-
+-class pandoc1(StdOutputParams, ExecutorTopicContinuum, CreateMakeDependencies):
++class pandoc1(ExecutorTopicContinuum, CreateMakeDependencies):
+     default_config = { "req_attributes":
+                        ["Id", "Priority", "Owner", "Invented on",
+                         "Invented by", "Status", "Class"] }
+@@ -596,46 +37,30 @@ class pandoc1(StdOutputParams, ExecutorTopicContinuum, CreateMakeDependencies):
+     def __init__(self, oconfig):
+         '''Create a pandoc1 output object.'''
+         tracer.debug("Called: pandoc1 ouput module constructed.")
+-        StdOutputParams.__init__(self, oconfig)
+         CreateMakeDependencies.__init__(self)
+-        self.__ce3set = None
+-        self.__fd = None
+-        self.__constraints_reqs_ref = {}
+-        self.__markdown = PandocMarkdown()
+-        # Stack of sub topic call envionment.
+-        # - sub topic called by SubTopic:
+-        # - sub topic called by IncludeSubTopic:
+-        # - no sub topic "MasterTopic"
+-        self.__sub_topic_stack = ["MasterTopic"]
+ 
++	# -- Do all the configuration ---
++        self._config = Cfg(oconfig)
+         if not self._config.is_available('req_attributes'):
+             self._config.set_value('req_attributes',
+                 ["Id", "Priority", "Owner", "Invented on",
+                         "Invented by", "Status", "Class"])
+-        self.__level = 0
+-        # additional (to StdOutput) pandoc1 configuration attributes
+-        if self._config.is_available('output_filename_pdf'):
+-            self.__output_filename_pdf = self._config.get_rvalue('output_filename_pdf')
+-        else:
+-            self.__output_filename_pdf = self._output_filename + ".pdf"
+-        if self._config.is_available('output_template_tex'):
+-            self.__output_template_tex = self._config.get_rvalue('output_template_tex')
+-        else:
+-            self.__output_template_tex = self._output_filename + ".template.tex"
+-        if self._config.is_available('output_filename_html'):
+-            self.__output_filename_html = self._config.get_rvalue('output_filename_html')
+-        else:
+-            self.__output_filename_html = self._output_filename + ".template.html"
+-        if self._config.is_available('output_cover_image'):
+-            self.__output_cover_image = self._config.get_rvalue('output_cover_image')
+-        else:
+-            self.__output_cover_image = None
+-
+-    def topic_set_pre(self, _topics_set):
+-        '''Prepare the output file.'''
+-        self.__markdown.open(self._output_filename)
++        
++	# --- init vars ---
++        self.__ce3set = None
++        self.__fd = None
++        self.__constraints_reqs_ref = {}
++        self.__markdown = PandocMarkdown()
++
++
++    def topic_set_pre(self, topic_set):
++        '''Prepare output.'''
+         # Remember the master topic
+-        self.__master_topic = _topics_set.get_master_topic()
++        self.__master_topic = topic_set.get_master_topic()
++        file_prefix = PandocUID.topic_set(topic_set) 
++	# Prepare to output markdown
++        self.__markdown.output_pre(self._config, file_prefix)
++        # Mark start of topic set
+         self.__markdown.section_pre("MasterTopic", self.__master_topic.get_topic_name(), 
+                                     PandocUID.topic(self.__master_topic))
+ 
+@@ -699,7 +124,7 @@ class pandoc1(StdOutputParams, ExecutorTopicContinuum, CreateMakeDependencies):
+             self.__markdown.section_post("Description")
+ 
+             if cnstrt.is_val_av_and_not_null("Expected Result"):
+-                self.__markdown.section_pre("Expected_Result", "Expected Result", PandocUID.textcase_expectedresult(cnstrt))
++                self.__markdown.section_pre("Expected_Result", "Expected Result", PandocUID.testcase_expectedresult(cnstrt))
+                 self.__markdown.fragment(cnstrt.get_value("Expected Result").get_content())
+                 self.__markdown.section_post("Expected_Result")
+ 
+@@ -734,34 +159,7 @@ class pandoc1(StdOutputParams, ExecutorTopicContinuum, CreateMakeDependencies):
+         self.__markdown.section_post("MasterTopic")
+         
+         tracer.debug("Clean up file.")
+-        self.__markdown.close()
+-
+-        tracer.debug("Generate dependent output.")
+-        if len(self.__output_filename_pdf) > 0:
+-            self.__fd = open(self._output_filename, "r")
+-            PandocRun.process_file(self.__fd.read(), "latex", 
+-                                   "markdown", 
+-                                   ["--standalone", "--smart",
+-                                    "--table-of-contents", "--toc-depth=6",
+-                                    "--number-sections",
+-                                    "--output=%s" % (self.__output_filename_pdf), 
+-                                    "--template=%s" % (self.__output_template_tex),
+-                                    "--latex-engine=xelatex",
+-                                    "-V", "documentclass=report",
+-                                    "-V", "mainfont=TeX Gyre Termes", 
+-                                    "-V", "papersize=a4paper"
+-                                   ])
+-            self.__fd.close()
+-        if len(self.__output_filename_html) > 0:
+-            self.__fd = open(self._output_filename, "r")
+-            PandocRun.process_file(self.__fd.read(), "html", 
+-                                   "markdown", 
+-                                   ["--standalone", "--smart",
+-                                    "--table-of-contents", "--toc-depth=6",
+-                                    "--number-sections",
+-                                    "--output=%s" % (self.__output_filename_html) 
+-                                   ])
+-            self.__fd.close()
++        self.__markdown.output_post()
+         tracer.debug("Finished.")
+ 
+     def topic_sub_pre(self, subtopic):
+@@ -785,11 +183,11 @@ class pandoc1(StdOutputParams, ExecutorTopicContinuum, CreateMakeDependencies):
+     def topic_pre(self, topic):
+         '''Output one topic.
+            This method is called once for each topic and subtopic.'''
+-        tracer.debug("Called: topic name [%s] in [%s] environment." % (topic.get_name(), self.__sub_topic_stack[-1]))
++        tracer.debug("Called: topic name [%s]." % (topic.get_name()))
+         if topic == self.__master_topic:
+             # Write title block for master topic
+             self.__markdown.title_block(topic.get_topic_name(), "", date.today(),
+-                                        self.__output_cover_image)
++                                        self._config.get_rvalue('output_cover_image'))
+         
+         self.__markdown.section_pre("Topic", topic.get_topic_name(), PandocUID.topic(topic))
+         self.__markdown.comment("Output topic '%s'" % topic.get_id())
+@@ -941,7 +339,7 @@ class pandoc1(StdOutputParams, ExecutorTopicContinuum, CreateMakeDependencies):
+         testcases = req.get_requirement().get_value_default("Test Cases")
+         if testcases != None:
+             self.__markdown.section_pre("Tested_by", "Tested by", PandocUID.testcases(testcases))
+-            # self.__level += 1 - following code does not use it
++            # Create links to the corresponding test cases.
+             link_list = []
+             for testcase in testcases:
+                 link_list += [(testcase.get_value("Name"), "#" + PandocUID.testcase(testcase), None)]
+-- 
+1.8.3.2
+

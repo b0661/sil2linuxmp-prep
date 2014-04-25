@@ -1,0 +1,16 @@
+Name: Project-Enabling Processes
+Text: 
+The Project-Enabling Processes are concerned with ensuring that the 
+resources needed to enable the SIL2LinuxMP project to meet the needs and
+expectations of the interested parties are met.
+The Project-Enabling Processes establish the environment in which the
+SIL2LinuxMP project is conducted. The SIL2LinuxMP organization establishes
+the processes and life cycle models to be used by the SIL2LinuxMP project;
+establishes, redirects, or cancels the project; provides resources required,
+including human and financial; and sets and monitors the quality measures
+for SIL2LinuxMP.
+IncludeRequirements: full
+SubTopic: S2LX/STDRS/EnablingProcess-LifeCycleModelManagement
+SubTopic: S2LX/STDRS/EnablingProcess-InfrastructureManagement
+SubTopic: S2LX/STDRS/EnablingProcess-HumanResourceManagement
+SubTopic: S2LX/STDRS/EnablingProcess-QualityManagement

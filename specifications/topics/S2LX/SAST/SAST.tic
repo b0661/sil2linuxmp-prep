@@ -1,0 +1,8 @@
+Name: Safety Strategy (S2LX/SAST/SAST)
+Text:
+The Safety Strategy (S2LX/SAST/SAST) defines:
+
+  * The aims and scope of the system related to safety.
+  * The safety policy.
+  * The general route to provide safety evidence.
+IncludeText: S2LX/SAST/SAST.md

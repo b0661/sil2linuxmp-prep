@@ -1,0 +1,6 @@
+Name: Requirements Definition
+Text:
+Definition of the approach and tools that SIL2LinuxMP will use to define
+the specifications of the project requirements.
+
+IncludeRequirements: full

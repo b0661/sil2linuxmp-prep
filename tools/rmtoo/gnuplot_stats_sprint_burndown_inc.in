@@ -1,0 +1,8 @@
+set timefmt "%Y-%m-%d"
+set xdata time
+set title "Sprint Burndown Diagram"
+set ylabel "EfE units"
+set xlabel "Time"
+set output "@RMTOO_CONFIG_PLOT_SPRINTBURNDOWN_OUTPUT_FILENAME@"
+set terminal postscript eps
+plot  '@RMTOO_CONFIG_PLOT_SPRINTBURNDOWN_INPUT_FILENAME@' using 1:5 title 'Open (not done + assigned)' with lines, '@RMTOO_CONFIG_PLOT_SPRINTBURNDOWN_INPUT_FILENAME@' using 1:2 title 'Not done' with lines, '@RMTOO_CONFIG_PLOT_SPRINTBURNDOWN_INPUT_FILENAME@' using 1:3 title 'Assigned' with lines,'@RMTOO_CONFIG_PLOT_SPRINTBURNDOWN_INPUT_FILENAME@' using 1:4 title 'Finished' with lines, '@RMTOO_CONFIG_PLOT_SPRINTBURNDOWN_INPUT_FILENAME@.est' using 1:2 title 'Estimation' with lines

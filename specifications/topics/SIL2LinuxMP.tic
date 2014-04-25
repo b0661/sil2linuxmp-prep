@@ -1,0 +1,32 @@
+Name: SIL2LinuxMP
+#: The topics common to the user, SIL2LinuxMP, and contributing projects
+SubTopic: DAA/DAA
+SubTopic: Basics/Basics
+
+#: The user project topics
+IncludeSubTopic: UserProject
+
+#: SIL2LinuxMP topics
+IncludeText: separator01.png --filter pandoc1_filter_md --inline_image
+SubTopic: S2LX/INTRO/INTRO
+IncludeRequirements: full
+SubTopic: S2LX/SAST/SAST
+SubTopic: S2LX/STDRS/STDRS
+SubTopic: S2LX/RMP/RMP
+
+
+#: Contributing project topics
+IncludeText: separator01.png --filter pandoc1_filter_md --inline_image
+
+
+#: The topics common to the user, SIL2LinuxMP, and contributing projects
+#: Gathering information from all above or provid guidance
+IncludeText: separator01.png --filter pandoc1_filter_md --inline_image
+SubTopic: RMG/RMG
+SubTopic: SCI/SCI
+
+#: Appendix
+IncludeText: separator01.png --filter pandoc1_filter_md --inline_image
+SubTopic: ARDG/ARDG
+
+

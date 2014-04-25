@@ -1,0 +1,127 @@
+From 4a523639bf26b55ad4e006126167ff38d010bfea Mon Sep 17 00:00:00 2001
+From: Bernhard Noelte <b0661n0e17e@gmail.com>
+Date: Mon, 21 Apr 2014 21:15:27 +0200
+Subject: [PATCH] Enable include of graphviz dot files.
+
+---
+ rmtoo/filters/pandoc1_filter_md.py | 42 ++++++++++++++++++++++++++++++++++++++
+ rmtoo/lib/Pandoc.py                | 19 ++++++++++++++++-
+ 2 files changed, 60 insertions(+), 1 deletion(-)
+
+diff --git a/rmtoo/filters/pandoc1_filter_md.py b/rmtoo/filters/pandoc1_filter_md.py
+index d6dc271..569afdb 100644
+--- a/rmtoo/filters/pandoc1_filter_md.py
++++ b/rmtoo/filters/pandoc1_filter_md.py
+@@ -11,9 +11,13 @@ The pandoc filter converts to Pandoc Markdown.
+  For licensing details see COPYING
+ '''
+ 
++import os
++import subprocess
+ import argparse
+ import csv
+ 
++import pygraphviz as pgv
++
+ from rmtoo.lib.logging import tracer
+ from rmtoo.lib.IncludeFilter import IncludeFilter
+ from rmtoo.lib.Pandoc import PandocFile
+@@ -30,6 +34,35 @@ class pandoc1_filter_md(IncludeFilter):
+         '''
+         return input_text
+       
++    def __filter_from_dot(self, input_text, output_file):
++        ''' Filter dot file.
++        source_file - Path to dot file.
++        '''
++        if self._config.is_available("filter_dot_preprocess"):
++	    args = self._config.get_rvalue('filter_dot_preprocess').split()
++	    p = subprocess.Popen(
++		    args, 
++		    stdin=subprocess.PIPE,
++		    stdout=subprocess.PIPE,
++		    stderr=subprocess.PIPE,
++		    )
++            result = p.communicate(input_text)
++            
++            trace_result = "%s - return: %s - stdout: %s - stderr: %s" % (" ".join(args), p.returncode, result[0], result[1])
++	    if p.returncode == 0:
++		tracer.debug(trace_result)
++	    else:
++		tracer.error(trace_result)
++
++	    input_text = result[0]
++
++        # Layout the dot file
++        graph = pgv.AGraph(input_text)
++        graph.layout(prog='dot')
++	# Write to png
++        graph.draw(output_file)
++        return output_file
++      
+     def __filter_from_csv(self, csv_data, csv_has_header):
+         ''' Filter csv data.
+         csv_data - input as returned by csv reader.
+@@ -95,6 +128,15 @@ class pandoc1_filter_md(IncludeFilter):
+                 output_text += "![%s](%s)" % (args.caption, source_file.abspath())
+                 if args.inline_image == True:
+                     output_text += r"\ "
++            elif mimetype == "text/vnd.graphviz":
++                with open(source_file.abspath(), "r") as dot_file:
++		    input_text = dot_file.read()
++		    output_file = os.path.splitext(os.path.basename(source_file.abspath()))[0] + ".png"
++		    output_file = PandocFile.cachefile(self._config, output_file)
++		    self.__filter_from_dot(input_text, output_file)
++		    output_text += "![%s](%s)" % (args.caption, output_file)
++		    if args.inline_image == True:
++			output_text += r"\ "
+             elif mimetype == "text/comma-separated-values":
+ 		with open(source_file.abspath(), 'rb') as csv_file:
+ 		    csv_sample = csv_file.read(1024)
+diff --git a/rmtoo/lib/Pandoc.py b/rmtoo/lib/Pandoc.py
+index a69de37..8b5a088 100644
+--- a/rmtoo/lib/Pandoc.py
++++ b/rmtoo/lib/Pandoc.py
+@@ -37,6 +37,9 @@ mimetypes.add_type("text/markdown", ".mkd", False)
+ mimetypes.add_type("text/markdown", ".mdwn", False)
+ mimetypes.add_type("text/markdown", ".mdtxt", False)
+ mimetypes.add_type("text/markdown", ".mdtext", False)
++# Amend mimetypes to set .dot to text/vnd.graphviz
++# (instead of application/msword)
++mimetypes.add_type("text/vnd.graphviz", ".dot", True)
+ 
+ 
+ class PandocFile:
+@@ -67,6 +70,20 @@ class PandocFile:
+ 	    # File not cached. We can not provide a relative path
+ 	    # Make it an absolute one or whatever was provided.
+ 	    self._relpath = self._filespec[0]
++	    
++	    
++    @staticmethod
++    def cachefile(oconfig, filename):
++	''' return the cache filename that would be used when this file is cached.
++	Returns None in case the file would not be cached.
++	'''
++	filename = os.path.basename(filename)
++	mimetype = mimetypes.guess_type(filename, False)[0]
++	if mimetype in ["image/jpeg", "image/png", "image/gif", "application/pdf"]:
++	    return oconfig.get_rvalue('output_image_path') + "/" + filename
++	elif mimetype in ["text/css"]:
++	    return oconfig.get_rvalue('output_css_path') + "/" + filename
++	return None
+ 
+     def __find_file(self, root_dirs, filename):
+         ''' Find a filename in the list of root directories
+@@ -124,7 +141,7 @@ class PandocFile:
+ 		filespec = (cachefile, "cached")
+ 	    else:
+ 		filespec = urllib.urlretrieve(source, cachefile)
+-	elif mimetype in ["text/markdown", "text/plain", "application/x-tex"]:
++	elif mimetype in ["text/markdown", "text/plain", "application/x-tex", "text/vnd.graphviz"]:
+ 	    # can be cached elsewhere or not altogether
+ 	    filespec = urllib.urlretrieve(source)
+ 	else:
+-- 
+1.8.3.2
+

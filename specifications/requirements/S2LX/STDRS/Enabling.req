@@ -1,0 +1,16 @@
+Name: SIL2LinuxMP Enabling Processes Management
+Type: requirement
+Invented on: 2014-03-31
+Invented by: Authors
+Owner: Community
+Description: 
+The SIL2LinuxMP organization shall define,
+implement, and execute processes that enable the SIL2LinuxMP project to 
+develop and maintain SIL2LinuxMP compliant to the software safety standards'
+requirements.
+Rationale: TBD
+Status: not done
+Solved by: S2LX/STDRS/Enabling-SafetyAndQualityPolicy
+Priority: Community:10
+Effort estimation: 5
+Topic: S2LX/STDRS/EnablingProcess

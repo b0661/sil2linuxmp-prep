@@ -1,0 +1,26 @@
+From af75d7059980e731f7d1350c74a7d1a94950391e Mon Sep 17 00:00:00 2001
+From: Bernhard Noelte <b0661n0e17e@gmail.com>
+Date: Mon, 21 Apr 2014 16:59:32 +0200
+Subject: [PATCH] Add double quotes for subgraph identifier in graph2.
+
+- Enables e.g. xxx/yyy topics to be used.
+---
+ rmtoo/outputs/graph2.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/rmtoo/outputs/graph2.py b/rmtoo/outputs/graph2.py
+index e5a269b..b0c10b0 100644
+--- a/rmtoo/outputs/graph2.py
++++ b/rmtoo/outputs/graph2.py
+@@ -74,7 +74,7 @@ class graph2(StdOutputParams, ExecutorTopicContinuum, CreateMakeDependencies):
+         '''This writes out all the subgraphs and nodes.'''
+         # The _GRAPH_ is there to differentiate between topics and
+         # possible equally named requirements. 
+-        self.__output_file.write('%ssubgraph cluster_GRAPH_%s {\n'
++        self.__output_file.write('%ssubgraph "cluster_GRAPH_%s" {\n'
+             '%s label="Topic: %s";\n'
+             % (self.__ident, topic.get_name(), self.__ident, topic.get_name()))
+         self.__inc_indent_level()
+-- 
+1.8.3.2
+

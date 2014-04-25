@@ -1,0 +1,37 @@
+# !/bin/bash
+# 
+# Simple script to get a project running
+#
+# Create a build directory and call this script
+# from inside the build directory.
+#
+# >> mkdir my-build-dir
+# >> cd my-build-dir 
+# >> . ../.../sil2linuxmp-demonstrator/bootstrap
+#
+# Afterwards a configuration file is created in the
+# build directory. Execute the configuration script.
+#
+# >> . configuration
+#
+# The configuration may take some time. After configuration
+# you are able to generate the documentation.
+#
+# >> make doc
+#
+# You can redo the configuration whenever you want by
+# calling configuration again.
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+
+echo "rm -rf CMakeFiles rmtoo" > configure
+echo "rm -f CMakeCache.txt Makefile cmake_install.cmake" >> configure
+echo "cmake -v " $DIR >> configure
+
+chmod +x configure

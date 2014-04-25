@@ -1,0 +1,19 @@
+Name: Software Life Cycle Environment Configuration Index
+Text:
+The Software Life Cycle Environment Configuration Index (SECI) identifies the
+configuration of the software life cycle environment. This index is written to aid
+reproduction of the hardware and software life cycle environment, for software
+regeneration, reverification, or software modification, and identifies:
+
+  * The software life cycle environment hardware and its operating system
+    software.
+  * The software development tools, such as compilers, linkage editors and
+    loaders, and data integrity tools (such as tools that calculate and embed
+    checksums or cyclical redundancy checks).
+  * The test environment used to verify the software product, for example,
+    the software verification tools.
+  * Identify qualified tools and their associated tool qualification data.
+#: IncludeText: SCI/SCI-SECI-HW.md
+#: IncludeText: SCI/SCI-SECI-SWDevTools.md
+#: IncludeText: SCI/SCI-SECI-TestEnvTools.md
+#: IncludeText: SCI/SCI-SECI-ToolQualData.md

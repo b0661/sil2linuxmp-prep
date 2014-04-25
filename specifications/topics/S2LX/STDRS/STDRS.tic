@@ -1,0 +1,17 @@
+Name: Standards Requirements Specification (S2LX/STDRS/STDRS)
+Text:
+The Standards Requirements Specification (S2LX/STDRS/STDRS):
+
+  * Gathers and interprets standards.
+  * Provides a mapping from the relevant requirements of each standard
+    to the generic standards' requirements of SIL2LinuxMP.
+  * Provides generic standards requirements for processes
+    (Functional Safety Management). In that the specification follows the
+    process scheme of IEC 15288.
+  * Provides generic standards requirements related to the technical
+    and functional characteristics of SIL2LinuxMP. The specification clusters
+    these requirements according to the typical normative V-model phases the
+    relevant artefacts must be produced first.
+IncludeRequirements: full
+SubTopic: S2LX/STDRS/IEC61508-3
+SubTopic: S2LX/STDRS/EnablingProcess

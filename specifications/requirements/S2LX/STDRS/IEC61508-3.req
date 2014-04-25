@@ -1,0 +1,18 @@
+Name: IEC61508-3
+Type: requirement
+Invented on: 2014-03-31
+Invented by: Authors
+Owner: Community
+Description:
+SIL2LinuxMP shall fulfil IEC 61508-3:2011.
+Rationale: 
+IEC 61508-3 is the basic software safety standard to several
+sector and product standards. Fulfilling IEC 61508-3 gives a maximum of other
+safety standards coverage; thus providing maximum usage coverage for
+SIL2LinuxMP.
+Status: not done
+Solved by: 
+S2LX/STDRS/IEC61508-3-6 S2LX/STDRS/IEC61508-3-7_1 S2LX/STDRS/IEC61508-3-7_2 S2LX/STDRS/IEC61508-3-7_3 S2LX/STDRS/IEC61508-3-7_4
+Priority: Community:10
+Effort estimation: 5
+Topic: S2LX/STDRS/IEC61508-3

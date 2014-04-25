@@ -1,0 +1,12 @@
+Name: @SIL2LINUXMP_PROJECT_NAME@
+Type: master requirement
+Invented on: 2013-04-01
+Invented by: Authors
+Owner: Community
+Description: @SIL2LINUXMP_PROJECT_NAME@ shall exist.
+Rationale: The world needs a safe, usable and free @SIL2LINUXMP_PROJECT_NAME@.
+Status: not done
+Solved by: SIL2LinuxMP
+Priority: Community:10
+Effort estimation: 5
+Topic: UserProject

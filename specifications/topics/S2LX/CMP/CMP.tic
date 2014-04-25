@@ -1,0 +1,17 @@
+Name: Configuration Management Plan (S2LX/CMP/CMP)
+Text:
+The Configuration Management Plan (S2LX/CMP/CMP) defines the methods, means and processes
+for establishing and maintaining consistency of the SIL2LinuxMP RTOS's performance,
+its functional and physical attributes, with its requirements, design and operational
+information, throughout its life.  It main aspects are:
+
+  * configuration items and baselines,
+  * configuration identification,
+  * configuration control,
+  * configuration audits,
+  * configuration status accounting.
+IncludeRequirements: full
+SubTopic: S2LX/CMP/CMP-Identification
+SubTopic: S2LX/CMP/CMP-Control
+SubTopic: S2LX/CMP/CMP-Status
+SubTopic: S2LX/CMP/CMP-Audits

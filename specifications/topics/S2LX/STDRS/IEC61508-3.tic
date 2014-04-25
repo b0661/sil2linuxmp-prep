@@ -1,0 +1,6 @@
+Name: IEC61508-3
+Text: The following requirements provide a mapping from the software
+ related IEC61508 requirements to the SIL2LinuxMP generic standards
+ requirements.
+IncludeRequirements: full
+

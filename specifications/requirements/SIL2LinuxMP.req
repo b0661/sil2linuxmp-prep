@@ -1,0 +1,21 @@
+Name: SIL2LinuxMP Certification Package
+Type: requirement
+Invented on: 2014-03-31
+Invented by: Authors
+Owner: Community
+Description:
+The SIL2LinuxMP Certification Package shall
+provide SIL2LinuxMP software together with software safety evidence
+documentation.
+Rationale:
+A SIL2LinuxMP Certification Package enables the user to use
+SIL2LinuxMP in safety applications and gain acceptance for
+SIL2LinuxMP. Safety evidence for correct operation of SIL2LinuxMP is
+key for product safety. Acceptance by authorities or notified bodies is key to
+use Linux for safety applications in regulated sectors.
+Status: not done
+Solved by: S2LX/STDRS/Standards
+Priority: Community:10
+Effort estimation: 21
+Topic: Basics/Basics
+

@@ -1,0 +1,14 @@
+Name: Requirements Definition Rules
+Type: requirement
+Invented on: 2014-04-07
+Invented by: Authors
+Owner: Community
+Description:
+Requirements shall be defined according to the rules given by the 
+[Requirements Management Guideline](#rmg-rmg). 
+Rationale:
+Adhering to the rules enables the rmtoo tool to check part of the
+requirements and to produce the output documentation.
+Status: not done
+Priority: Community:10
+Topic: S2LX/RMP/Definition

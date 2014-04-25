@@ -1,0 +1,12 @@
+Name: Tools, Environment and Infrastructure
+Text: 
+Definition of the computing environment and software tools to be used in
+fulfilling the Requirements Management functions throughout the SIL2LinuxMP
+lifecycle.
+
+Definition of the tools and procedures that will be used to control the 
+versioning of the Requirements items generated throughout the SIL2LinuxMP 
+lifecycle.
+
+IncludeRequirements: full
+

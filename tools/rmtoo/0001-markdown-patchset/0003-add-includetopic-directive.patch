@@ -1,0 +1,162 @@
+From fc3d2fa0226b70d0ef5b9afb0fd2d70f26a68a3b Mon Sep 17 00:00:00 2001
+From: Bernhard Noelte <b0661n0e17e@gmail.com>
+Date: Fri, 11 Apr 2014 22:59:09 +0200
+Subject: [PATCH] Add IncludeTopic: directive.
+
+- bugfix
+components_as_string() is called on exception 69 with RequirementDNode
+object in set. RequirementDNode object does not have a name attribute.
+- html output
+Make links relative links.
+- markdown output
+New output
+Add IncludeText: key with related markdown filter
+---
+ rmtoo/lib/ExecutorTopicContinuum.py | 19 ++++++++++++-----
+ rmtoo/lib/Topic.py                  | 11 +++++++++-
+ rmtoo/outputs/pandoc1.py            | 42 ++++++++++++++++++++++++++++++-------
+ 3 files changed, 59 insertions(+), 13 deletions(-)
+
+diff --git a/rmtoo/lib/ExecutorTopicContinuum.py b/rmtoo/lib/ExecutorTopicContinuum.py
+index 1f3640d..8406337 100644
+--- a/rmtoo/lib/ExecutorTopicContinuum.py
++++ b/rmtoo/lib/ExecutorTopicContinuum.py
+@@ -61,11 +61,24 @@ class ExecutorTopicContinuum:
+         and output the text to be included.
+         '''
+         return
+-    
++
+     def topic_text(self, _text):
+         '''Called when there is text to be outputted.'''
+         return
+ 
++    def topic_post(self, _topic):
++        '''This is called in the Topic post-phase.'''
++        return
++
++    def topic_include_sub_pre(self, _subtopic):
++        '''Called before the subtopic is called.
++        Indicates sub topic shall be included'''
++        return
++
++    def topic_include_sub_post(self, _subtopic):
++        '''Called after include subtopic is called.'''
++        return
++
+     def topic_sub_pre(self, _subtopic):
+         '''Called when before the subtopic is called.'''
+         return
+@@ -74,10 +87,6 @@ class ExecutorTopicContinuum:
+         '''Called when after the subtopic is called.'''
+         return
+ 
+-    def topic_post(self, _topic):
+-        '''This is called in the Topic post-phase.'''
+-        return
+-
+     def requirement_set_pre(self, _requirement_set):
+         '''This is called in the RequirementSet pre-phase.'''
+         return
+diff --git a/rmtoo/lib/Topic.py b/rmtoo/lib/Topic.py
+index 30c6595..3b25b60 100644
+--- a/rmtoo/lib/Topic.py
++++ b/rmtoo/lib/Topic.py
+@@ -29,7 +29,7 @@ class Topic(Digraph.Node):
+ 
+         for tag in self.__tags:
+             # If the topic has subtopics, read them also in.
+-            if tag.get_tag() == "SubTopic":
++            if tag.get_tag() in ["SubTopic", "IncludeSubTopic"]:
+                 lfile_info = input_handler.get_file_info_with_type(
+                             commit, "topics", tag.get_content() + ".tic")
+                 ntopic = Topic(self.__topicset, self._config, input_handler,
+@@ -101,6 +101,15 @@ class Topic(Digraph.Node):
+                 FuncCall.pcall(executor, func_prefix + "topic_sub_post",
+                                subtopic)
+                 continue
++            if rtag == "IncludeSubTopic":
++                subtopic = self.__topicset.find(tag.get_content())
++                assert subtopic != None
++                FuncCall.pcall(executor, func_prefix + "topic_include_sub_pre",
++                               subtopic)
++                subtopic.execute(executor, func_prefix)
++                FuncCall.pcall(executor, func_prefix + "topic_include_sub_post",
++                               subtopic)
++                continue
+             if rtag == "IncludeRequirements":
+                 self.__requirements.execute(executor, func_prefix)
+                 continue
+diff --git a/rmtoo/outputs/pandoc1.py b/rmtoo/outputs/pandoc1.py
+index 33290ca..d6e5c38 100644
+--- a/rmtoo/outputs/pandoc1.py
++++ b/rmtoo/outputs/pandoc1.py
+@@ -388,6 +388,11 @@ class pandoc1(StdOutputParams, ExecutorTopicContinuum, CreateMakeDependencies):
+         self.__ce3set = None
+         self.__fd = None
+         self.__constraints_reqs_ref = {}
++        # Stack of sub topic call envionment.
++        # - sub topic called by SubTopic:
++        # - sub topic called by IncludeSubTopic:
++        # - no sub topic "MasterTopic"
++        self.__sub_topic_stack = ["MasterTopic"]
+ 
+         if not self._config.is_available('req_attributes'):
+             self._config.set_value('req_attributes',
+@@ -540,23 +545,46 @@ class pandoc1(StdOutputParams, ExecutorTopicContinuum, CreateMakeDependencies):
+         self.__fd.close()
+         tracer.debug("Finished.")
+ 
++    def topic_sub_pre(self, _subtopic):
++        '''Called when before the subtopic is called.'''
++        self.__sub_topic_stack.append("SubTopic:")
++
++    def topic_sub_post(self, _subtopic):
++        '''Called when after the subtopic is called.'''
++        key = self.__sub_topic_stack.pop()
++
++    def topic_include_sub_pre(self, _subtopic):
++        '''Called before the subtopic is called.
++        Indicates sub topic shall be included'''
++        '''Called when before the subtopic is called.'''
++        self.__sub_topic_stack.append("IncludeSubTopic:")
++
++    def topic_include_sub_post(self, _subtopic):
++        '''Called after include subtopic is called.'''
++        key = self.__sub_topic_stack.pop()
++
+     def topic_pre(self, topic):
+         '''Output one topic.
+            This method is called once for each topic and subtopic.'''
+-        tracer.debug("Called: topic name [%s]." % topic.get_name())
+-        if topic != self.__master_topic:
++        tracer.debug("Called: topic name [%s] in [%s] environment." % (topic.get_name(), self.__sub_topic_stack[-1]))
++        if self.__sub_topic_stack[-1] == "SubTopic:":
++            # Only write headers in subtopic environment
+             PandocMarkdown.write_header(self.__fd, self.__level, topic.get_topic_name(), PandocUID.topic(topic))
+             self.__level += 1
+         else:
+-            # Do not output header for master topic, as the master topic
+-            # is the document
+-            PandocMarkdown.write_title_block(self.__fd, topic.get_topic_name(), "", date.today(),
+-                                             self.__output_cover_image)
++            # Do not output header
++            # - for master topic, as the master topic is the document
++            # - for IncludeTopic:, as this is explicitly requested by this directive.
++            if self.__sub_topic_stack[-1] == "MasterTopic":
++                assert topic == self.__master_topic
++                # Write title block for master topic
++                PandocMarkdown.write_title_block(self.__fd, topic.get_topic_name(), "", date.today(),
++                                                 self.__output_cover_image)
+         PandocMarkdown.write_comment(self.__fd, "Output topic '%s'" % topic.get_id())
+ 
+     def topic_post(self, topic):
+         '''Cleanup things for topic.'''
+-        if topic != self.__master_topic:
++        if self.__sub_topic_stack[-1] == "SubTopic:":
+             self.__level -= 1
+ 
+     def topic_name(self, _name):
+-- 
+1.8.3.2
+

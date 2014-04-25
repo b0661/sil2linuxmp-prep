@@ -1,0 +1,44 @@
+{
+    "global": {
+        "modules": {
+            "directories": [
+                @RMTOO_CONFIG_GLOBAL_MODULES_DIRECTORIES@
+            ]
+        },
+	"logging": { 
+	    "stdout": {
+	        "loglevel": "@RMTOO_CONFIG_GLOBAL_LOGGING_STDOUT_LOGLEVEL@"
+	    },
+	    "tracer": {
+	        "loglevel": "@RMTOO_CONFIG_GLOBAL_LOGGING_TRACER_LOGLEVEL@",
+		"filename": "@RMTOO_CONFIG_GLOBAL_LOGGING_TRACER_FILENAME@"
+    	    }
+        }
+    }, 
+    "processing": {
+        "analytics": {
+            "stop_on_errors": @RMTOO_CONFIG_PROCESSING_ANALYTICS_STOP_ON_ERRORS@
+        }
+    }, 
+    "requirements": {
+        "input": {
+            "commit_interval": {
+                "begin": "FILES", 
+                "end": "FILES"
+            }, 
+            "default_language": "@RMTOO_CONFIG_REQUIREMENTS_INPUT_DEFAULT_LANGUAGE@", 
+            "dependency_notation": [
+                "@RMTOO_CONFIG_REQUIREMENTS_INPUT_DEPENDENCY_NOTATION@"
+            ]
+        }, 
+        "inventors": [
+            @RMTOO_CONFIG_REQUIREMENTS_INVENTORS@
+        ], 
+        "stakeholders": [
+            @RMTOO_CONFIG_REQUIREMENTS_STAKEHOLDERS@
+        ]
+    }, 
+    "topics": {
+@RMTOO_CONFIG_TOPICS@
+    }
+}

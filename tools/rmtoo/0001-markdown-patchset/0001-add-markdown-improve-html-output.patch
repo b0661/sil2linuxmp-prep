@@ -1,0 +1,1319 @@
+From 44e60e83704f3947842c8ecaf1aec5fe309962f7 Mon Sep 17 00:00:00 2001
+From: Bernhard Noelte <b0661n0e17e@gmail.com>
+Date: Fri, 11 Apr 2014 22:59:09 +0200
+Subject: [PATCH] Add markdown and improve html ouput.
+
+- bugfix
+components_as_string() is called on exception 69 with RequirementDNode
+object in set. RequirementDNode object does not have a name attribute.
+- html output
+Make links relative links.
+- markdown output
+New output
+Add IncludeText: key with related markdown filter
+---
+ rmtoo/filters/__init__.py                     |   0
+ rmtoo/filters/pandoc1_filter_md.py            |  52 ++
+ rmtoo/lib/ExecutorTopicContinuum.py           |   7 +
+ rmtoo/lib/IncludeFilter.py                    |  89 +++
+ rmtoo/lib/IncludeText.py                      |  91 ++++
+ rmtoo/lib/Topic.py                            |   4 +
+ rmtoo/lib/digraph/ConnectedComponents.py      |   2 +-
+ rmtoo/lib/storagebackend/RecordEntry.py       |   2 +-
+ rmtoo/lib/storagebackend/txtfile/TxtParser.py |  99 ++--
+ rmtoo/outputs/html.py                         |  31 +-
+ rmtoo/outputs/pandoc1.py                      | 747 ++++++++++++++++++++++++++
+ 11 files changed, 1081 insertions(+), 43 deletions(-)
+ create mode 100644 rmtoo/filters/__init__.py
+ create mode 100644 rmtoo/filters/pandoc1_filter_md.py
+ create mode 100644 rmtoo/lib/IncludeFilter.py
+ create mode 100644 rmtoo/lib/IncludeText.py
+ create mode 100644 rmtoo/outputs/pandoc1.py
+
+diff --git a/rmtoo/filters/__init__.py b/rmtoo/filters/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/rmtoo/filters/pandoc1_filter_md.py b/rmtoo/filters/pandoc1_filter_md.py
+new file mode 100644
+index 0000000..8a1ec06
+--- /dev/null
++++ b/rmtoo/filters/pandoc1_filter_md.py
+@@ -0,0 +1,52 @@
++'''
++ rmtoo
++   Free and Open Source Requirements Management Tool
++   
++Pandoc markdown filter class version 1.
++
++The pandoc filter converts to Pandoc Markdown.
++  
++ (c) by Bernhard Noelte
++
++ For licensing details see COPYING
++'''
++
++import argparse
++
++from rmtoo.lib.logging import tracer
++from rmtoo.lib.IncludeFilter import IncludeFilter
++
++class pandoc1_filter_md(IncludeFilter):
++
++    def __init__(self, oconfig):
++        # initialise base class IncludeFilter
++        IncludeFilter.__init__(self, oconfig)
++
++    def __filter_from_md(self, input_text):
++        ''' Filter markdownm text.
++        input_text input as a string.
++        '''
++        return input_text
++
++    def filter(self, sources, args):
++        tracer.debug("Called.")
++        print(args)
++        output_text = ""
++        for source in sources:
++            url = IncludeFilter._url(self, source)
++            filespec = IncludeFilter._retrieve(self, url)
++            print("filespec=")
++            print(filespec)
++            mimetype = IncludeFilter._mimetype(self, url)
++            print(mimetype)
++            if mimetype[0] == "text/markdown":
++                fd = open(filespec[0], "r")
++                input_text = fd.read()
++                fd.close()
++                output_text += self.__filter_from_md(input_text)
++            elif mimetype[0] in ["image/png", "image/jpeg"]:
++                output_text += "![%s](%s)" % (args.caption, filespec[0])
++                if args.inline_image == True:
++                    output_text += r"\ "   
++
++        return output_text
+\ No newline at end of file
+diff --git a/rmtoo/lib/ExecutorTopicContinuum.py b/rmtoo/lib/ExecutorTopicContinuum.py
+index 6397545..1f3640d 100644
+--- a/rmtoo/lib/ExecutorTopicContinuum.py
++++ b/rmtoo/lib/ExecutorTopicContinuum.py
+@@ -54,6 +54,13 @@ class ExecutorTopicContinuum:
+     def topic_name(self, _name):
+         '''Called when the Name tag appears in the topic.'''
+         return
++        
++    def topic_include_text(self, _include_command):
++        '''Called when there is text to be included.
++        The function shall process the include command
++        and output the text to be included.
++        '''
++        return
+     
+     def topic_text(self, _text):
+         '''Called when there is text to be outputted.'''
+diff --git a/rmtoo/lib/IncludeFilter.py b/rmtoo/lib/IncludeFilter.py
+new file mode 100644
+index 0000000..9fbc3e3
+--- /dev/null
++++ b/rmtoo/lib/IncludeFilter.py
+@@ -0,0 +1,89 @@
++'''
++ rmtoo
++   Free and Open Source Requirements Management Tool
++   
++  Base class for include filters.
++   
++ (c) 2014 by Bernhard Noelte
++
++ For licensing details see COPYING
++'''
++
++import os
++import mimetypes
++import urllib
++from urlparse import urlparse,urlunparse
++
++from rmtoo.lib.RMTException import RMTException
++from rmtoo.lib.logging import tracer
++
++# pylint: disable=W0232 
++class IncludeFilter:
++    
++    def __init__(self, oconfig):
++        tracer.debug("Called.")
++        ''' Initialize the filter and remember output configuration to be used during filtering.'''
++        self._config = oconfig
++        # Create list of include directories for files
++        self._texts_dirs = []
++        if self._config.is_available('texts_dirs'):
++            self._texts_dirs += self._config.get_rvalue('texts_dirs')
++        # Amend mimetypes to also include markdown
++        mimetypes.add_type("text/markdown", ".markdown", False)
++        mimetypes.add_type("text/markdown", ".mdown", False)
++        mimetypes.add_type("text/markdown", ".mkdn", False)
++        mimetypes.add_type("text/markdown", ".md", False)
++        mimetypes.add_type("text/markdown", ".mkd", False)
++        mimetypes.add_type("text/markdown", ".mdwn", False)
++        mimetypes.add_type("text/markdown", ".mdtxt", False)
++        mimetypes.add_type("text/markdown", ".mdtext", False)
++        
++    def __find_file(self, root_dirs, filename):
++        ''' Find a filename in the list of root directories
++        The filename may either be a pure name or some relative/ absolute path.
++        '''
++        if os.path.isabs(filename):
++            if os.path.isfile(filename):
++                return filename
++            else:
++                raise RMTException(115, "File not found [%s]" % filename,
++                                   self.__class__.__name__)
++        for root_path in root_dirs:
++            for root, dirnames, files in os.walk(os.path.normpath(root_path)):
++                searchfile = os.path.join(root, filename)
++                if os.path.isfile(searchfile) == True:
++                    return searchfile
++        raise RMTException(115, "File not found [%s]" % filename,
++                           self.__class__.__name__)
++    
++    def  _mimetype(self, url):
++        ''' Get the mimetype of the url.'''
++        return mimetypes.guess_type(urlunparse(url), False)
++        
++    def _retrieve(self, url):
++        ''' Retrieve a file. 
++        Return a tuple (filename, headers) where filename is the local file name under
++        which the object can be found, and headers is whatever the info() method of the
++        object returned by urllib.urlopen()
++        '''
++        filespec = urllib.urlretrieve(urlunparse(url))
++        return filespec
++        
++    def _url(self, source):
++        '''Get the source URL (or None).'''
++        url = urlparse(source)
++        if url.scheme == "" or url.scheme == "file":
++            # sanitize file url and check for file to be available.
++            url = urlparse("file:%s" %
++                           (self.__find_file(self._texts_dirs, os.path.normpath(url.path)),
++                           ))
++        else:
++            pass
++        return url
++        
++
++    def filter(self, _sources, _args):
++        '''This is called to fetch and filter the include text.'''
++        tracer.debug("Called.")
++        return
++
+diff --git a/rmtoo/lib/IncludeText.py b/rmtoo/lib/IncludeText.py
+new file mode 100644
+index 0000000..58afcb0
+--- /dev/null
++++ b/rmtoo/lib/IncludeText.py
+@@ -0,0 +1,91 @@
++'''
++ rmtoo
++   Free and Open Source Requirements Management Tool
++   
++  IncludeText
++   Helper and utils for text inclusion
++   
++ (c) 2014 by Bernhard Noelte
++
++ For licensing details see COPYING
++'''
++
++import argparse
++import shlex
++
++from rmtoo.lib.RMTException import RMTException
++from rmtoo.lib.logging import tracer
++
++# pylint: disable=W0232
++class IncludeText:
++    '''Text inclusion class function collection.
++    Include text commands must follow the following format:
++    IncludeText: --filter=<path to filter.py> <path to file>
++    All filters are expected to produce markdown text.
++    '''
++    
++    # Dictionary of filters that are already created.
++    __filters_available = {}
++
++    def __init__(self, oconfig, include_command):
++        ''' Create a include text object. '''
++        tracer.debug("Called.")
++        self._config = oconfig
++        self.__include_command = include_command
++        self.__parser = argparse.ArgumentParser(prog="TextInclude:", description='Process TextInclude command.')
++        self.__parser.add_argument('--filter_name', type=str, default="pandoc1_filter_md")
++        self.__parser.add_argument('--caption', type=str)
++        self.__parser.add_argument('--inline_image', action="store_true")
++        self.__parser.add_argument('sources', type=str, nargs='*')
++        self.__include_args = self.__parser.parse_args(shlex.split(include_command))
++
++        print(IncludeText.__filters_available)
++
++        # Get the filter
++        self.__filter_obj = IncludeText.__filters_available.get(self.__include_args.filter_name)
++        if self.__filter_obj == None:
++            # Create the filter module object
++            try:
++                filter_cstr = self.__create_filter_module(self.__include_args.filter_name)
++            except ImportError:
++                raise RMTException(116, "%s - Filter not found [%s]." % 
++                                        (include_command, self.__include_args.filter_name),
++                                   self.__class__.__name__)
++            self.__filter_obj = filter_cstr(oconfig)
++            IncludeText.__filters_available.update({self.__include_args.filter_name : self.__filter_obj})
++
++        # Execute the filter
++        self.__include_text_as_markdown = self.__filter_obj.filter(self.__include_args.sources,
++                                                                   self.__include_args)
++        tracer.info("Finished.")
++
++    @staticmethod
++    def __load_filter_module(filter_name):
++        '''Loads the filter module with the given name.'''
++        tracer.debug("Loading filter module [%s]" % filter_name)
++        # Concatenate the needed names
++        filter_path_parts = ["rmtoo", "filters", filter_name]
++        filter_path = ".".join(filter_path_parts)
++        # Load the module
++        return __import__(filter_path, globals(), locals(), filter_path)
++
++    def __create_filter_module(self, filter_name):
++        '''Creates the filter module object.'''
++        tracer.debug("Creating filter module [%s]" % filter_name)
++        # pylint: disable=W0612
++        filter_module = self.__load_filter_module(filter_name)
++        # Create the constructor object.
++        return eval("filter_module.%s" % filter_name)
++
++    def get_text_as_raw(self):
++        '''Get content as raw (maybe binary) text.
++        Returns text and valid flag.
++        '''
++        return (self.__include_command, True)
++
++    def get_text_as_markdown(self):
++        '''Get content as markdown text.
++        Returns text and valid flag.
++        '''
++        return (self.__include_text_as_markdown)
++
+diff --git a/rmtoo/lib/Topic.py b/rmtoo/lib/Topic.py
+index 9298e95..30c6595 100644
+--- a/rmtoo/lib/Topic.py
++++ b/rmtoo/lib/Topic.py
+@@ -104,6 +104,10 @@ class Topic(Digraph.Node):
+             if rtag == "IncludeRequirements":
+                 self.__requirements.execute(executor, func_prefix)
+                 continue
++            if rtag == "IncludeText":
++                FuncCall.pcall(executor, func_prefix + "topic_include_text",
++                               tag.get_content())
++                continue
+             if rtag == "Text":
+                 FuncCall.pcall(executor, func_prefix + "topic_text",
+                                tag.get_content())
+diff --git a/rmtoo/lib/digraph/ConnectedComponents.py b/rmtoo/lib/digraph/ConnectedComponents.py
+index ab5243c..ce20ede 100644
+--- a/rmtoo/lib/digraph/ConnectedComponents.py
++++ b/rmtoo/lib/digraph/ConnectedComponents.py
+@@ -25,7 +25,7 @@ class CC_Components:
+     def set_as_string(cs):
+         r = set()
+         for c in cs:
+-            r.add(c.name)
++            r.add(c.get_name())
+         return r
+ 
+     def as_string(self):
+diff --git a/rmtoo/lib/storagebackend/RecordEntry.py b/rmtoo/lib/storagebackend/RecordEntry.py
+index b3b9ab7..9406b85 100644
+--- a/rmtoo/lib/storagebackend/RecordEntry.py
++++ b/rmtoo/lib/storagebackend/RecordEntry.py
+@@ -45,7 +45,7 @@ class RecordEntry:
+         fd.write(self.get_content())
+         fd.write("\n")
+ 
+-        fd.write("# ")
++        fd.write("#:")
+         fd.write(self.get_comment())
+         fd.write("\n")
+ 
+diff --git a/rmtoo/lib/storagebackend/txtfile/TxtParser.py b/rmtoo/lib/storagebackend/txtfile/TxtParser.py
+index ea51dd7..3357fa9 100644
+--- a/rmtoo/lib/storagebackend/txtfile/TxtParser.py
++++ b/rmtoo/lib/storagebackend/txtfile/TxtParser.py
+@@ -18,14 +18,30 @@ import re
+ # pylint: disable=W0232
+ class TxtParser:
+ 
+-    re_tag_line = re.compile("^([a-zA-Z][a-zA-Z0-9_ ]*:)(.*)$")
++    # Tag rules:
++    # - only one space allowed (two words)
++    # - no space before :
++    # - only letters, digits and underscore in tag name
++    # - tag starts with capital letter
++    re_tag_line = re.compile("^([A-Z][a-zA-Z0-9_]* *[a-zA-Z0-9_]+:)[ \t]*(.*)$")
+     
+     @staticmethod
+-    def is_comment_or_empty(line):
+-        '''Checks if the given line is empty or a comment.'''
+-        if len(line)==0:
+-            return True
+-        if line[0]=='#':
++    def __is_comment(tag, line):
++        '''Checks if the given line is a rmtoo comment line.
++        The line comment tag depends on the current tag:
++        - Text: -> comment tag: '#:' (to not interfere Markdown)
++        - Description: -> comment tag: '#' (no headers with # markdown allowed, we can use that)
++        - Rationale: -> comment tag: '#' (- " -)
++        - Note: -> comment tag: '#' (- " -)
++        - other: -> comment tag: '#' or empty line
++        '''
++        if tag == "Text:":
++            if len(line) >= 2 and line[0]=='#' and line[1]==':':
++                return True
++        elif tag in ["Description:", "Rationale", "Note:"]:
++            if len(line) >= 1 and line[0]=='#':
++                return true
++        elif len(line) == 0 or line[0]=='#':
+             return True
+         return False
+ 
+@@ -36,7 +52,7 @@ class TxtParser:
+            o the rest'''
+         comment = []
+         for i in xrange(0, len(sl)):
+-            if not TxtParser.is_comment_or_empty(sl[i]):
++            if not TxtParser.__is_comment("", sl[i]):
+                 del(sl[0:i])
+                 return comment
+             comment.append(sl[i])
+@@ -44,7 +60,9 @@ class TxtParser:
+         return comment
+ 
+     comment_in_req = "Compatibility info: Comments will be reordered " \
+-        "when they are re-written with rmtoo-tools. Please consult " \
++        "when they are re-written with rmtoo-tools. If this comment is " \
++        "in a Text: value please check to use #: for comment lines " \
++        "instead of # only. Please consult " \
+         "rmtoo-req-format(5) or rmtoo-topic-format(5)"
+ 
+     @staticmethod
+@@ -54,36 +72,50 @@ class TxtParser:
+            Precondition: it can be assumed that len(sl)>0'''
+         i = 0
+         sl_len = len(sl)
+-        # The first line must contain the tag.
+-        retl = TxtParser.re_tag_line.match(sl[i])
+-        if not retl:
+-            raise RMTException(79, "Expected tag line not found",
+-                               rid, lineno)
+-
++        tag = ""
+         content = []
+         comment = []
+ 
+-        # Split first line: the Tag is everyting including the ':'
+-        # The content starts directly after this ':'
+-        tag = retl.group(1)
+-        content.append(retl.group(2))
+-
+-        i+=1
+-##      This is what is needed - to be compatible with the old
+-##      specification.
+         while i<sl_len:
+-            if TxtParser.re_tag_line.match(sl[i]):
+-                break
+-            elif len(sl[i])>0 and sl[i][0]==" ":
+-                content.append(sl[i])
++            retl = TxtParser.re_tag_line.match(sl[i])
++            if retl:
++                # We have a tag
++                if i == 0:
++                    # Split first line: the Tag is everything including the ':'
++                    # The content starts directly after this ':' and any additional white space
++                    tag = retl.group(1)
++                    sl[i] = retl.group(2)
++                else:
++                    # We reached the next tag
++                    break
++            elif i == 0:
++                # The first line must contain the tag.
++                raise RMTException(79, "Expected tag line not found",
++                                   rid, lineno)
++
++            if i == 0 and len(sl[i]) == 0:
++                # Skip empty first line content
++                pass
++            elif TxtParser.__is_comment(tag, sl[i]):
++                # The problem: old style comments start with #
++                # and markdown also can start with # for headers
++                # -> use markdown comments <!-- comment --> 
++                # -> use '#:' in Text: value
++                #             starting at the beginning of the line
++                #             or after the tag
++                comment.append(sl[i])
++            else:
++                if tag in ["Text:", "Description:", "Rationale", "Note:"]:
++                    # We have to preserve newline for markdown here.
++                    content.append(sl[i] + "\n")
++                else:
++                    content.append(sl[i])
+                 if len(comment)>0:
+                     # This is the possible problematic case where
+                     # continuation lines are intermixed with comments.
+                     logger.info(LogFormatter.format(
+-                             80, TxtParser.comment_in_req,
+-                             rid, lineno+i))
+-            elif TxtParser.is_comment_or_empty(sl[i]):
+-                comment.append(sl[i])
++                                80, TxtParser.comment_in_req,
++                                rid, lineno+i))
+             i+=1
+         rec = [tag, content, comment]
+         del(sl[0:i])
+@@ -139,8 +171,11 @@ class TxtParser:
+             if len(l)==0:
+                 s += "\n"
+                 continue
+-            # All other lines: cut of the leading '#'
+-            s += l[1:] + "\n"
++            # All other lines: cut of the leading '#' or '#:'
++            if len(l) > 1 and l[1] == ":":
++                s += l[2:] + "\n"
++            else:
++                s += l[1:] + "\n"
+         return s
+ 
+     @staticmethod
+diff --git a/rmtoo/outputs/html.py b/rmtoo/outputs/html.py
+index 84e15f6..8076506 100644
+--- a/rmtoo/outputs/html.py
++++ b/rmtoo/outputs/html.py
+@@ -43,6 +43,12 @@ class html(ExecutorTopicContinuum, CreateMakeDependencies):
+ 
+     def __ouput_html_topic_open_output_file(self, name, mode):
+         '''Each Topic will be stored in an separate html file.'''
++        ouput_file_dir = os.path.dirname(os.path.join(self.__output_directory, name))
++        try:
++            os.makedirs(ouput_file_dir)
++        except OSError, ose:
++            # It's ok if directory is already there
++            pass
+         fd = file(os.path.join(self.__output_directory, name + ".html"),
+                   mode)
+         return fd
+@@ -96,8 +102,10 @@ class html(ExecutorTopicContinuum, CreateMakeDependencies):
+         if not self.__ul_open_stack[-1]:
+             fd.write('<span class="subtopiclist"><ul>')
+             self.__ul_open_stack[-1] = True
+-        fd.write('<li><a href="%s.html">%s</a></li>\n' %
+-                 (subtopic.get_topic_name(), subtopic.get_id()))
++        subtopic_file = os.path.join(self.__output_directory, subtopic.get_id() + ".html")
++        subtopic_href = os.path.relpath(subtopic_file, os.path.dirname(fd.name))  
++        fd.write('<li><a href="%s">%s</a></li>\n' %
++                 (subtopic_href, subtopic.get_topic_name()))
+ 
+     def topic_sub_post(self, subtopic):
+         '''Write the header for subtopic.'''
+@@ -150,8 +158,10 @@ class html(ExecutorTopicContinuum, CreateMakeDependencies):
+                 if not is_first:
+                     fd.write(", ")
+                 is_first = False
+-                fd.write('<a href="%s.html#%s">%s</a>' %
+-                         (d.get_requirement().get_value("Topic"), d.get_name(), d.get_name()))
++                reqtopic_file = os.path.join(self.__output_directory, d.get_requirement().get_value("Topic") + ".html")
++                reqtopic_href = os.path.relpath(reqtopic_file, os.path.dirname(fd.name)) 
++                fd.write('<a href="%s#%s">%s</a>' %
++                         (reqtopic_file, d.get_name(), d.get_name()))
+             fd.write("</span></dd>")
+ 
+         if req.get_incoming_cnt()> 0:
+@@ -163,9 +173,10 @@ class html(ExecutorTopicContinuum, CreateMakeDependencies):
+                 if not is_first:
+                     fd.write(", ")
+                 is_first = False
+-                fd.write('<a href="%s.html#%s">%s</a>' %
+-                         (d.get_requirement().get_value("Topic"), d.get_name(), 
+-                          d.get_name()))
++                reqtopic_file = os.path.join(self.__output_directory, d.get_requirement().get_value("Topic") + ".html")
++                reqtopic_href = os.path.relpath(reqtopic_file, os.path.dirname(fd.name)) 
++                fd.write('<a href="%s#%s">%s</a>' %
++                         (reqtopic_href, d.get_name(), d.get_name()))
+             fd.write("</span></dd>")
+ 
+         status = req.get_requirement().get_value("Status").get_output_string()
+@@ -295,8 +306,10 @@ class html(ExecutorTopicContinuum, CreateMakeDependencies):
+ 
+                 rtopic = topic.find_incoming(val)
+                 # A link to the other file.
+-                fd.write('<li><a href="%s.html">%s</a></li>\n' %
+-                         (val, rtopic.get_name()))
++                subtopic_file = os.path.join(self.__output_directory, val + ".html")
++                subtopic_href = os.path.relpath(subtopic_file, os.path.dirname(fd.name)) 
++                fd.write('<li><a href="%s">%s</a></li>\n' %
++                         (subtopic_file, rtopic.get_name()))
+                 self.output_html_topic(rtopic)
+                 continue
+ 
+diff --git a/rmtoo/outputs/pandoc1.py b/rmtoo/outputs/pandoc1.py
+new file mode 100644
+index 0000000..33290ca
+--- /dev/null
++++ b/rmtoo/outputs/pandoc1.py
+@@ -0,0 +1,747 @@
++'''
++ rmtoo
++   Free and Open Source Requirements Management Tool
++   
++Pandoc markdown output class version 1.
++  
++ (c) by Bernhard Noelte
++
++ For licensing details see COPYING
++'''
++
++import subprocess
++import os
++import sys
++import re
++import json
++from datetime import date
++
++
++from rmtoo.lib.Requirement import Requirement
++from rmtoo.lib.Constraints import Constraints
++from rmtoo.lib.TestCases import TestCases
++from rmtoo.lib.RMTException import RMTException
++from rmtoo.lib.StdOutputParams import StdOutputParams
++from rmtoo.lib.ExecutorTopicContinuum import ExecutorTopicContinuum
++from rmtoo.lib.logging import tracer
++from rmtoo.lib.CreateMakeDependencies import CreateMakeDependencies
++from rmtoo.lib.IncludeText import IncludeText
++
++
++class PandocRun:
++    @staticmethod
++    def convert(reader, processor, source, to, format=None, extra_args=()):
++        '''Converts given `source` from `format` `to` another. `source` may be either a file path or a string to be converted.
++        It's possible to pass `extra_args` if needed. In case `format` is not provided, it will try to invert the format based on given `source`.
++
++        Raises OSError if pandoc is not found! Make sure it has been installed and is available at path.
++        '''
++        source, format = reader(source, format)
++
++        formats = {
++            'dbk': 'docbook',
++            'md': 'markdown',
++            'rest': 'rst',
++            'tex': 'latex',
++        }
++
++        format = formats.get(format, format)
++        to = formats.get(to, to)
++
++        if not format:
++            raise RuntimeError('Missing format!')
++
++        from_formats, to_formats = get_pandoc_formats()
++
++        if format not in from_formats:
++            raise RuntimeError('Invalid input format! Expected one of these: ' + ', '.join(from_formats))
++
++        if to not in to_formats:
++            raise RuntimeError('Invalid to format! Expected one of these: ' + ', '.join(to_formats))
++
++        return processor(source, to, format, extra_args)
++
++    def _read_file(source, format):
++        if os.path.exists(source):
++            with open(source) as f:
++                format = format or os.path.splitext(source)[1].strip('.')
++                source = f.read()
++
++        return source, format
++    
++    @staticmethod
++    def process_file(source, to, format, extra_args):
++        args = ['pandoc', '--from=' + format, '--to=' + to]
++        args.extend(extra_args)
++
++        p = subprocess.Popen(
++                args,
++                stdin=subprocess.PIPE,
++                stdout=subprocess.PIPE)
++
++        return p.communicate(source.encode('utf-8'))[0].decode('utf-8')
++
++    @staticmethod
++    def get_formats():
++        '''
++        Dynamic preprocessor for Pandoc formats.
++        Return 2 lists. "from_formats" and "to_formats".
++        ''' 
++        try:
++            p = subprocess.Popen(
++                    ['pandoc', '-h'],
++                    stdin=subprocess.PIPE,
++                    stdout=subprocess.PIPE)
++        except OSError:
++            raise OSError("You probably do not have pandoc installed.")
++        
++        help_text = p.communicate()[0].decode().splitlines(False)
++        txt = ' '.join(help_text[1:help_text.index('Options:')])
++
++        aux = txt.split('Output formats: ')
++        in_ = aux[0].split('Input formats: ')[1].split(',')
++        out = aux[1].split(',')
++
++        return [f.strip() for f in in_], [f.strip() for f in out]
++
++
++# pandoc handling
++class PandocMarkdown:
++    header_level_markup = [
++        "#",
++        "##",
++        "###",
++        "####",
++        "#####",
++        "######",
++        "#######",
++        "########",
++        "#########",
++        "##########",
++        "###########",
++        "############",
++        "#############" ]
++    
++    bullet_list_markup = " * "
++
++    __re_header_markup_start = re.compile(r'^#', re.MULTILINE)
++    
++    @staticmethod
++    def write_header(fd, level, title, identifier):
++        '''Output a header.'''
++        # Note: Pandoc requires a blank line before a header
++        fd.write("\n%s %s {#%s}\n\n" % (PandocMarkdown.header_level_markup[level], title, identifier))
++        
++    @staticmethod
++    def write_plain_text(fd, text):
++        '''Output plain text.'''
++        # TODO convert plain text to markdown
++        fd.write("%s" % (text))
++        
++    @staticmethod
++    def write_markdown(fd, text):
++        '''Output markdown text.'''
++        fd.write("%s" % (text))
++
++    @staticmethod
++    def write_internal_link(fd, name, identifier):
++        '''Output an internal link.'''
++        fd.write("[%s](#%s)" % (name, identifier))
++
++    @staticmethod
++    def write_title_block(fd, title, author, date, cover_image):
++        '''Output a title block. '''
++        # YAML metadata block. (Version 1.12 needed)
++        fd.write("% {0}\n% {1}\n% {2}\n\n".format(title, author, date.isoformat()))
++        #fd.write("---\n")
++        #fd.write("title:\n- type: main\n  text: {0}\n".format(title))
++        #fd.write("creator:\n- role: author\n  text: {0}\n".format(author))
++        #fd.write("date: {0}\n".format(date.isoformat()))
++        #if cover_image != None and len(cover_image) > 0:
++        #    fd.write("cover-image: {0}\n".format(cover_image))
++        #fd.write("---\n")
++        
++    @staticmethod
++    def write_comment(fd, comment):
++        '''Output a comment. The comment will not produce any output by pandoc. '''
++        fd.write("<!-- %s -->\n\n" % (comment))
++
++    @staticmethod
++    def write_fragment(fd, level, fragment):
++        '''Output a markdown fragment with header levels adjusted by level.'''
++        if level <= 0:
++            fd.write("%s\n\n" % (fragment))
++        else:
++            # Adjust header levels
++            fragment = PandocMarkdown.__re_header_markup_start.sub(PandocMarkdown.header_level_markup[level], fragment)
++            fd.write("%s\n\n" % (fragment))
++
++    @staticmethod
++    def write_link_list(fd, link_list, format=None):
++        '''Output a link list formatted acc. to format
++        from a list of link specification tuples (link text, link uri | internal reference, link title).
++        internal reference must be of the form #re-fe-re-nc-e
++        uri may be any URI
++        The link text is what shows up in a document.
++        '''
++        fd.write("\n") # Make an empty line. Most list formats need that.
++        line = ""
++        link_spec = ()
++        for link_spec in link_list:
++            link = "[%s](%s" % (link_spec[0], link_spec[1])
++            if link_spec[2] != None and len(link_spec[2]) > 0:
++                link += " \"%s\"" % (link_spec[2])
++            link += ")"
++            if format == "BulletList":
++                # Bullet list
++                fd.write("%s%s\n" % (PandocMarkdown.bullet_list_markup, link))
++            else:
++                # Comma separated list
++                if len(line) > 0:
++                    if len(line) + len(link) > 80 - 2:
++                        fd.write(line + ",\n")
++                        line = ""
++                    else:
++                        line += ", "
++                line += link
++        if len(line) > 0:
++            fd.write(line)
++        fd.write("\n\n")
++            
++
++    @staticmethod
++    def write_simple_table(fd, simple_table, with_header=True):
++        '''Output a markdown table from a simple table.
++        Simple tables are just a list of rows, that are a list of cells.
++        The first line is used as header if with_header is set to True.
++        '''
++        # Split the simple table into 2 dimensional array of rows with cells
++        table1 = simple_table
++        column_count = len(table1[0])
++        bar_count = column_count + 1
++        # header separator
++        header_separator = '|:--' * column_count + '|'
++        # Join cells of a row with a bar in between
++        # Strip any trailing white space in a cell
++        table2 = ['|' + '|'.join([cell.rstrip() if cell != ' ' else cell for cell in row]) + '|' for row in table1]
++        # Fix rows to have the exact number of cells in each
++        for row in enumerate(table2):
++            row_count = row[1].count('|')
++            if row_count < bar_count:
++                table2[row[0]]+='|' * (bar_count - row_count)
++        # insert separator and join list of lines with line breaks.
++        if with_header:
++            table2.insert(1, header_separator)
++        else:
++            table2.insert(0, header_separator)
++        table3 = '\n'.join(table2)
++        # Write to file
++        fd.write("%s\n" % (table3))
++
++
++class PandocUID:
++    # regular expressions for uid generation
++    __re_formatting = re.compile(r'(\[^\]*]|\{[^\}]*\}|\([^\)]\))')
++    __re_punctations = re.compile(r'[\s.,;\:\!\?\#\~\=\%\^\$\*\+\/\{\}\[\]\\\|\(\)\"\']')
++    __re_multi_hypens = re.compile(r'--+')
++    __re_leading_hypen_digit = re.compile(r'^[\d-]+')
++    __re_trailing_hypen = re.compile(r'[-]+$')
++
++    @staticmethod
++    def __uid(identifier):
++        '''Generate unique identifier.'''
++        uid = identifier.lower()
++        uid = PandocUID.__re_formatting.sub('-', uid)
++        uid = PandocUID.__re_punctations.sub('-', uid)
++        uid = PandocUID.__re_multi_hypens.sub('-', uid)
++        uid = PandocUID.__re_leading_hypen_digit.sub('', uid)
++        uid = PandocUID.__re_trailing_hypen.sub('', uid)
++        return uid
++
++    @staticmethod
++    def topic(topic):
++        '''Generate unique identifier from topic.'''
++        identifier = topic.get_name() + " " + topic.get_topic_name()
++        return "topic-" + PandocUID.__uid(identifier)
++    
++    @staticmethod
++    def topic_set(toptic_set):
++        '''Generate unique identifier from topic set.'''
++        # Use requirement name and topic as identifier.
++        identifier = topic_set.get_master_topic().get_topic_name()
++        return "topic-set-" + PandocUID.__uid(identifier)
++    
++    @staticmethod
++    def topic_set_constraints(toptic_set):
++        '''Generate unique identifier for constraints of topic set.'''
++        # Use requirement name and topic as identifier.
++        identifier = topic_set.get_name()
++        return PandocUID.topic_set(topic_set) + "-constraints"
++    
++    @staticmethod
++    def topic_set_testcases(toptic_set):
++        '''Generate unique identifier for constraints of topic set.'''
++        # Use requirement name and topic as identifier.
++        identifier = topic_set.get_name()
++        return PandocUID.topic_set(topic_set) + "-testcases"
++
++    @staticmethod
++    def constraint(ctr):
++        '''Generate unique constraint identifier from constraint.'''
++        identifier = ctr.get_value("Name").get_content()
++        return "constraint-" + PandocUID.__uid(identifier)
++
++    @staticmethod
++    def constraint_description(ctr):
++        '''Generate unique constraint identifier from constraint.'''
++        return PandocUID.constraint(ctr) + "-description"
++
++    @staticmethod
++    def constraint_rationale(ctr):
++        '''Generate unique constraint identifier from constraint.'''
++        return PandocUID.constraint(ctr) + "-nationale"
++
++    @staticmethod
++    def constraint_note(ctr):
++        '''Generate unique constraint identifier from constraint.'''
++        return PandocUID.constraint(ctr) + "-note"
++
++    @staticmethod
++    def constraint_requirements(ctr):
++        '''Generate unique constraint identifier from constraint.'''
++        return PandocUID.constraint(ctr) + "-requirements"
++
++    @staticmethod
++    def testcase(testcase):
++        '''Generate unique testcase identifier from testcase.'''
++        identifier = testcase.get_value("Name").get_content()
++        return "testcase-" + PandocUID.__uid(identifier)
++
++    @staticmethod
++    def testcase_description(testcase):
++        '''Generate unique constraint identifier from constraint.'''
++        return PandocUID.testcase(testcase) + "-description"
++
++    @staticmethod
++    def testcase_expectedresult(testcase):
++        '''Generate unique constraint identifier from constraint.'''
++        return PandocUID.testcase(testcase) + "-expected-result"
++
++    @staticmethod
++    def testcase_rationale(testcase):
++        '''Generate unique constraint identifier from constraint.'''
++        return PandocUID.testcase(testcase) + "-rationale"
++
++    @staticmethod
++    def testcase_note(testcase):
++        '''Generate unique constraint identifier from constraint.'''
++        return PandocUID.testcase(testcase) + "-note"
++    
++    @staticmethod
++    def requirement(req):
++        '''Generate unique requirement identifier from requirement.'''
++        # Use requirement name and topic as identifier.
++        identifier = req.get_value("Topic") + " " + req.get_value("Name").get_content()
++        return "requirement-" + PandocUID.__uid(identifier)
++
++    @staticmethod
++    def requirement_description(req):
++        '''Generate unique requirement identifier from requirement.'''
++        return PandocUID.requirement(req) + "-description"
++    
++    @staticmethod
++    def requirement_rationale(req):
++        '''Generate unique requirement identifier from requirement.'''
++        return PandocUID.requirement(req) + "-rationale"
++    
++    @staticmethod
++    def requirement_note(req):
++        '''Generate unique requirement identifier from requirement.'''
++        return PandocUID.requirement(req) + "-note"
++    
++    @staticmethod
++    def requirement_depends_on(req):
++        '''Generate unique requirement identifier from requirement.'''
++        return PandocUID.requirement(req) + "-depends-on"
++    
++    @staticmethod
++    def requirement_solved_by(req):
++        '''Generate unique requirement identifier from requirement.'''
++        return PandocUID.requirement(req) + "-solved-by"
++
++    @staticmethod
++    def requirement_constraints(req):
++        '''Generate unique requirement identifier from requirement.'''
++        return PandocUID.requirement(req) + "-constraints"
++
++
++class pandoc1(StdOutputParams, ExecutorTopicContinuum, CreateMakeDependencies):
++    default_config = { "req_attributes":
++                       ["Id", "Priority", "Owner", "Invented on",
++                        "Invented by", "Status", "Class"] }
++
++    def __init__(self, oconfig):
++        '''Create a pandoc1 output object.'''
++        tracer.debug("Called: pandoc1 ouput module constructed.")
++        StdOutputParams.__init__(self, oconfig)
++        CreateMakeDependencies.__init__(self)
++        self.__ce3set = None
++        self.__fd = None
++        self.__constraints_reqs_ref = {}
++
++        if not self._config.is_available('req_attributes'):
++            self._config.set_value('req_attributes',
++                ["Id", "Priority", "Owner", "Invented on",
++                        "Invented by", "Status", "Class"])
++        self.__level = 0
++        # additional (to StdOutput) pandoc1 configuration attributes
++        if self._config.is_available('output_filename_pdf'):
++            self.__output_filename_pdf = self._config.get_rvalue('output_filename_pdf')
++        else:
++            self.__output_filename_pdf = self._output_filename + ".pdf"
++        if self._config.is_available('output_template_tex'):
++            self.__output_template_tex = self._config.get_rvalue('output_template_tex')
++        else:
++            self.__output_template_tex = self._output_filename + ".template.tex"
++        if self._config.is_available('output_filename_html'):
++            self.__output_filename_html = self._config.get_rvalue('output_filename_html')
++        else:
++            self.__output_filename_html = self._output_filename + ".template.html"
++        if self._config.is_available('output_cover_image'):
++            self.__output_cover_image = self._config.get_rvalue('output_cover_image')
++        else:
++            self.__output_cover_image = None
++
++    def topic_set_pre(self, _topics_set):
++        '''Prepare the output file.'''
++        self.__fd = open(self._output_filename, "w")
++        # Remember the master topic
++        self.__master_topic = _topics_set.get_master_topic()
++
++    def __output_topic_set_constraints(self, topic_set):
++        '''Write out all constraints for the topic set.'''
++        constraints = Constraints.collect(topic_set)
++        if len(constraints) == 0:
++            tracer.debug("No constraints to output.")
++            return
++        PandocMarkdown.write_header(self.__fd, self.__level, "Constraints", PandocUID.topic_set_constraints(topic_set))
++        self.__level += 1
++        for cname, cnstrt in sorted(constraints.iteritems()):
++            # Write out one constraint
++            tracer.debug("Output constraint [%s]." % cname)
++            PandocMarkdown.write_comment(self.__fd, "CTR '%s'" % cname)
++            
++            PandocMarkdown.write_header(self.__fd, self.__level, cnstrt.get_value("Name").get_content(), PandocUID.constraint(cnstrt))
++            self.__level += 1
++            PandocMarkdown.write_header(self.__fd, self.__level, "Description", PandocUID.constraint_description(cnstrt))
++            PandocMarkdown.write_fragment(self.__fd, self.__level,
++                                          cnstrt.get_value("Description").get_content())
++            self.__level -= 1
++            if cnstrt.is_val_av_and_not_null("Rationale"):
++                PandocMarkdown.write_header(self.__fd, self.__level, "Rationale", PandocUID.constraint_rationale(cnstrt))
++                self.__level += 1
++                PandocMarkdown.write_fragment(self.__fd, self.__level,
++                                              cnstrt.get_value("Rationale").get_content())
++                self.__level -= 1
++            if cnstrt.is_val_av_and_not_null("Note"):
++                PandocMarkdown.write_header(self.__fd, self.__level, "Note", PandocUID.constraint_note(cnstrt))
++                self.__level += 1
++                PandocMarkdown.write_fragment(self.__fd, self.__level,
++                                            cnstrt.get_value("Note").get_content())
++                self.__level -= 1
++            # Write out the references to the requirements
++            PandocMarkdown.write_header(self.__fd, self.__level, "Requirements", PandocUID.constraint_requirements(cnstrt))
++            # self.__level += 1 - following code does not use it
++            link_list = []
++            for req in self.__constraints_reqs_ref[cname]:
++                link_list += (req.get_name(), "#" + PandocUID.requirement(req), None)
++            PandocMarkdown.write_link_list(self.__fd, link_list)
++            # self.__level -= 1
++            self.__level -= 1
++            tracer.debug("Output constraint [%s] finished." % cname)
++        self.__level -= 1
++
++    def __output_topic_set_testcases(self, topic_set):
++        '''Write out all testcases for the topic set.'''
++        testcases = TestCases.collect(topic_set)
++        if len(testcases) == 0:
++            tracer.debug("No testcases to output.")
++            return
++        PandocMarkdown.write_header(self.__fd, self.__level, "Test Cases", PandocUID.topic_set_testcases(topic_set))
++        self.__level += 1
++        for cname, cnstrt in sorted(testcases.iteritems()):
++            # Write out one test case
++            tracer.debug("Output test case [%s]." % cname)
++            PandocMarkdown.write_comment(self.__fd, "TEST-CASE '%s'" % cname)
++            
++            PandocMarkdown.write_header(self.__fd, self.__level, cnstrt.get_value("Name").get_content(), PandocUID.testcase(cnstrt))
++            self.__level += 1
++            PandocMarkdown.write_header(self.__fd, self.__level, "Description", PandocUID.testcase_description(cnstrt))
++            self.__level += 1
++            PandocMarkdown.write_fragment(self.__fd, self.__level,
++                                          cnstrt.get_value("Description").get_content())
++            self.__level -= 1
++            if cnstrt.is_val_av_and_not_null("Expected Result"):
++                PandocMarkdown.write_header(self.__fd, self.__level, "Expected Result", PandocUID.textcase_expectedresult(cnstrt))
++                self.__level += 1
++                PandocMarkdown.write_fragment(self.__fd, self.__level,
++                                            cnstrt.get_value("Expected Result").get_content())
++                self.__level -= 1
++            if cnstrt.is_val_av_and_not_null("Rationale"):
++                PandocMarkdown.write_header(self.__fd, self.__level, "Rationale", PandocUID.textcase_rationale(cnstrt))
++                self.__level += 1
++                PandocMarkdown.write_fragment(self.__fd, self.__level,
++                                            cnstrt.get_value("Rationale").get_content())
++                self.__level -= 1
++            if cnstrt.is_val_av_and_not_null("Note"):
++                PandocMarkdown.write_header(self.__fd, self.__level, "Note", PandocUID.testcase_note(cnstrt))
++                self.__level += 1
++                PandocMarkdown.write_fragment(self.__fd, self.__level,
++                                            cnstrt.get_value("Note").get_content())
++                self.__level -= 1
++            self.__level -= 1
++            tracer.debug("Output test case [%s] finished." % cname)
++        self.__level -= 1
++
++    def topic_set_post(self, topic_set):
++        '''Print out the constraints and clean up file.'''
++        tracer.debug("Called; output constraints.")
++        if topic_set == None:
++            assert False
++        self.__output_topic_set_constraints(topic_set)
++        self.__output_topic_set_testcases(topic_set)
++        tracer.debug("Clean up file.")
++        self.__fd.close()
++        tracer.debug("Generate dependent output.")
++        if len(self.__output_filename_pdf) > 0:
++            self.__fd = open(self._output_filename, "r")
++            PandocRun.process_file(self.__fd.read(), "latex", 
++                                   "markdown", 
++                                   ["--standalone", "--smart",
++                                    "--table-of-contents", "--toc-depth=6",
++                                    "--number-sections",
++                                    "--output=%s" % (self.__output_filename_pdf), 
++                                    "--template=%s" % (self.__output_template_tex),
++                                    "--latex-engine=xelatex",
++                                    "-V", "mainfont='Adobe Ming Std'" 
++                                   ])
++            self.__fd.close()
++        if len(self.__output_filename_html) > 0:
++            self.__fd = open(self._output_filename, "r")
++            PandocRun.process_file(self.__fd.read(), "html", 
++                                   "markdown", 
++                                   ["--standalone", "--smart",
++                                    "--table-of-contents", "--toc-depth=6",
++                                    "--number-sections",
++                                    "--output=%s" % (self.__output_filename_html) 
++                                   ])
++            self.__fd.close()
++        tracer.debug("Clean up file.")
++        self.__fd.close()
++        tracer.debug("Finished.")
++
++    def topic_pre(self, topic):
++        '''Output one topic.
++           This method is called once for each topic and subtopic.'''
++        tracer.debug("Called: topic name [%s]." % topic.get_name())
++        if topic != self.__master_topic:
++            PandocMarkdown.write_header(self.__fd, self.__level, topic.get_topic_name(), PandocUID.topic(topic))
++            self.__level += 1
++        else:
++            # Do not output header for master topic, as the master topic
++            # is the document
++            PandocMarkdown.write_title_block(self.__fd, topic.get_topic_name(), "", date.today(),
++                                             self.__output_cover_image)
++        PandocMarkdown.write_comment(self.__fd, "Output topic '%s'" % topic.get_id())
++
++    def topic_post(self, topic):
++        '''Cleanup things for topic.'''
++        if topic != self.__master_topic:
++            self.__level -= 1
++
++    def topic_name(self, _name):
++        '''Output the topic name.'''
++        pass # Name already written in topic_pre()
++
++    def topic_include_text(self, include_command):
++        '''Get and write out the text to be included.'''
++        # process the include command
++        include_text = IncludeText(self._config, include_command)
++        text = include_text.get_text_as_markdown()
++        PandocMarkdown.write_fragment(self.__fd, self.__level, text)
++
++    def topic_text(self, text):
++        '''Write out the given text.'''
++        PandocMarkdown.write_fragment(self.__fd, self.__level, text)
++
++    def requirement_set_pre(self, rset):
++        '''Prepare the requirements set output.'''
++        self.__ce3set = rset.get_ce3set()
++        self.__testcases = rset.get_testcases()
++
++    def requirement_set_sort(self, list_to_sort):
++        '''Sort by id.'''
++        return sorted(list_to_sort, key=lambda r: r.get_name())
++
++    def __add_constraint_req_ref(self, constraint, requirement):
++        if constraint not in self.__constraints_reqs_ref:
++            self.__constraints_reqs_ref[constraint] = []
++        self.__constraints_reqs_ref[constraint].append(requirement)
++
++    def requirement(self, req):
++        '''Write out one requirement.'''
++        # req is a RequirementDNode -> the requirement is in req.get_requirement()
++        
++        req_uid = PandocUID.requirement(req.get_requirement())
++        PandocMarkdown.write_comment(self.__fd, "REQ '%s' uid: '%s'" % (req.get_name(), req_uid))
++
++        # Requirement header
++        PandocMarkdown.write_header(self.__fd, self.__level, 
++                                    req.get_requirement().get_value("Name").get_content(),
++                                    req_uid)
++        self.__level += 1
++        # Requirement Description Header - Omitted as it is redundant to requirements header.
++        # PandocMarkdown.write_header(self.__fd, self.__level,
++        #                           "Description",
++        #                            PandocUID.requirement_description(req.get_requirement()))
++
++        # Requirement Description Content
++        PandocMarkdown.write_fragment(self.__fd, self.__level + 1,
++                                      req.get_requirement().get_value("Description").get_content())
++
++        # Write table of standard attributes
++        # Put mostly 4 things in a row
++        status = req.get_requirement().get_value("Status").get_output_string()
++        clstr = req.get_requirement().get_value("Class").get_output_string()
++        rtype = Requirement.get_type_as_str(req.get_requirement().get_value("Type"))
++        simple_table = []
++        row1 = []
++        row2 = []
++        for rattr in self._config.get_value("req_attributes"):
++            if len(row1) >= 4:
++                simple_table += [row1, row2]
++                row1 = []
++                row2 = []
++            if rattr == "Id":
++                row1 += ["Id:"]
++                row2 += [req.get_name()]
++            elif rattr == "Priority":
++                row1 += ["Priority:"]
++                row2 += ["%4.2f" % (req.get_requirement().get_value("Priority") * 10)]
++            elif rattr == "Owner":
++                row1 += ["Owner:"]
++                row2 += [req.get_requirement().get_value("Owner")]
++            elif rattr == "Invented on":
++                row1 += ["Invented on:"]
++                row2 += [req.get_requirement().get_value("Invented on").strftime("%Y-%m-%d")]
++            elif rattr == "Invented by":
++                row1 += ["Invented by:"]
++                row2 += [req.get_requirement().get_value("Invented by")]
++            elif rattr == "Status":
++                row1 += ["Status:"]
++                row2 += [status]
++            elif rattr == "Class":
++                row1 += ["Class:"]
++                row2 += [clstr]
++            elif rattr == "Type":
++                row1 += ["Type:"]
++                row2 += [rtype]
++            else:
++                # This only happens when a wrong configuration is supllied.
++                raise RMTException(85, "Wrong pandoc1 output configuration "
++                                   "supplied: unknown tag [%s]" % rattr)
++        simple_table += [row1, row2]
++        PandocMarkdown.write_simple_table(self.__fd, simple_table, False)
++
++        if req.get_requirement().is_val_av_and_not_null("Rationale"):
++            # Requirement Rationale Header
++            PandocMarkdown.write_header(self.__fd, self.__level,
++                                        "Rationale",
++                                        PandocUID.requirement_rationale(req.get_requirement()))
++            # Requirement Rationale Content
++            PandocMarkdown.write_fragment(self.__fd, self.__level + 1,
++                                          req.get_requirement().get_value("Rationale").get_content())
++        
++        if req.get_requirement().is_val_av_and_not_null("Note"):
++            # Requirement Note Header
++            PandocMarkdown.write_header(self.__fd, self.__level,
++                                        "Note",
++                                        PandocUID.requirement_note(req.get_requirement()))
++            # Requirement Note Content
++            PandocMarkdown.write_fragment(self.__fd, self.__level + 1,
++                                          req.get_requirement().get_value("Note").get_content())
++
++        if req.get_outgoing_cnt() > 0:
++            # Only output the depends on when there are fields for output.
++            # Requirement Depends on Header
++            PandocMarkdown.write_header(self.__fd, self.__level,
++                                        "Depends on",
++                                        PandocUID.requirement_depends_on(req.get_requirement()))
++            # self.__level += 1 - following code does not use it
++            # Create links to the corresponding labels.
++            link_list = []
++            for d in sorted(req.get_iter_outgoing(), key=lambda r: r.get_name()):
++                link_list += [(d.get_requirement().get_id(), "#" + PandocUID.requirement(d.get_requirement()), "")]
++            PandocMarkdown.write_link_list(self.__fd, link_list)
++            # self.__level -= 1
++
++        if req.get_incoming_cnt() > 0:
++            # Only output the depends on when there are fields for output.
++            # Requirement Solved by Header
++            PandocMarkdown.write_header(self.__fd, self.__level,
++                                        "Solved by",
++                                        PandocUID.requirement_solved_by(req.get_requirement()))
++            # self.__level += 1 - following code does not use it
++            # Create links to the corresponding dependency nodes.
++            link_list = []
++            for d in sorted(req.get_iter_incoming(), key=lambda r: r.get_name()):
++                link_list += [(d.get_name(), "#" + PandocUID.requirement(d.get_requirement()), "")]
++            PandocMarkdown.write_link_list(self.__fd, link_list)
++            # self.__level -= 1
++
++        tracer.debug("Output constraints")
++        if self.__ce3set != None:
++            req_ce3set = self.__ce3set.get(req.get_name())
++            tracer.debug("Constraints are available [%s]" % req_ce3set)
++            tracer.debug("Check constraint header output [%s]" %
++                         req_ce3set.len())
++            if req_ce3set != None and req_ce3set.len() > 0:
++                tracer.debug("Output constraint header")
++                # Constraints header
++                PandocMarkdown.write_header(self.__fd, self.__level,
++                                            "Constraints",
++                                            PandocUID.requirement_constraints(req.get_requirement()))
++                # self.__level += 1 - following code does not use it
++                link_list = []
++                for key, val in sorted(req_ce3set.get_values().iteritems()):
++                    refid = PandocUID.constraint(key)
++                    link_list += [(key, "#" + refid, val.description())]
++                    tracer.debug("Output constraint [%s]" % refid)
++                    # Also put a reference (for later use) in the 
++                    # constraints to requirements ref.
++                    # @TODO check for refid or cname to use, should be cname I think -> key
++                    self.__add_constraint_req_ref(key, req)
++                PandocMarkdown.write_link_list(self.__fd, link_list)
++                # self.__level -= 1
++
++        testcases = req.get_requirement().get_value_default("Test Cases")
++        if testcases != None:
++            # Constraints header
++            PandocMarkdown.write_header(self.__fd, self.__level,
++                                        "Test Cases", PandocUID.testcases(testcases))
++            # self.__level += 1 - following code does not use it
++            link_list = []
++            for testcase in testcases:
++                link_list += [(testcase.get_value("Name"), "#" + PandocUID.testcase(testcase), None)]
++            PandocMarkdown.write_link_list(self.__fd, link_list)
++            # self.__level -= 1
++
++        # End of requirement
++        self.__level -= 1
++
++    def cmad_topic_continuum_pre(self, _):
++        '''Write out the one and only dependency to all the requirements.'''
++        tracer.debug("Called.")
++        CreateMakeDependencies.write_reqs_dep(self._cmad_file,
++                                              self._output_filename)
++        self._cmad_file.write("REQS_PANDOC1=%s\n" % self._output_filename)
+-- 
+1.8.3.2
+

@@ -1,0 +1,14 @@
+Name: Safety and Quality Policy
+Type: requirement
+Invented on: 2014-03-31
+Invented by: Authors
+Owner: Community
+Description: The SIL2LinuxMP organization shall have safety 
+and quality as primary goals.
+Rationale: ISO 61508-1:2011 6.2.2
+Status: not done
+Solved by: S2LX/RMP/Definition-Rules
+Priority: Community:10
+Effort estimation: 21
+Topic: S2LX/STDRS/EnablingProcess
+

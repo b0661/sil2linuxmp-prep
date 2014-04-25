@@ -1,0 +1,14 @@
+Name: Definitions, Acronyms, and Abbreviations
+Text: 
+# Definitions
+
+IncludeText: Definitions.md --filter pandoc1_filter_md
+Text:
+# Acronyms
+
+IncludeText: Acronyms.md --filter pandoc1_filter_md
+Text:
+# Abbreviations
+
+IncludeText: Abbreviations.md --filter pandoc1_filter_md
+IncludeRequirements: full

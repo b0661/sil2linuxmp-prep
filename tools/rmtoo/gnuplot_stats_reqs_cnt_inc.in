@@ -1,0 +1,8 @@
+set timefmt "%Y-%m-%d_%H:%M:%S"
+set xdata time
+set title "Requirements Count Statistics"
+set ylabel "Count"
+set xlabel "Time"
+set output "@RMTOO_CONFIG_PLOT_REQSCNT_OUTPUT_FILENAME@"
+set terminal postscript eps
+plot '@RMTOO_CONFIG_PLOT_REQSCNT_INPUT_FILENAME@' using 1:2 title 'requirement count' with lines

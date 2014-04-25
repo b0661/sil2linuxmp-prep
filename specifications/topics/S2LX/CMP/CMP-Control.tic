@@ -1,0 +1,14 @@
+Name: Configuration Control
+Text:
+Configuration control defines:
+
+  * the documentation of the actual configuration, 
+  * the procedures for configuration change,
+  * the procedures for preventing unauthorized items from entering service, 
+  * the access to configuration tools,
+  * the traceability of HW and SW- versions, 
+  * the traceability of configuration changes
+    (e.g. identification of last revision).
+
+IncludeRequirements: full
+

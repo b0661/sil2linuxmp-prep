@@ -1,0 +1,305 @@
+From b17b566ab49650a9638ed59e1ebac11374f733be Mon Sep 17 00:00:00 2001
+From: Bernhard Noelte <b0661n0e17e@gmail.com>
+Date: Fri, 18 Apr 2014 15:45:13 +0200
+Subject: [PATCH] Add default template handling.
+
+---
+ contrib/template_project/pandoc/default.tex |  20 +---
+ rmtoo/lib/Pandoc.py                         | 174 +++++++++++++++++++---------
+ 2 files changed, 122 insertions(+), 72 deletions(-)
+
+diff --git a/contrib/template_project/pandoc/default.tex b/contrib/template_project/pandoc/default.tex
+index 64a0083..2cddee5 100644
+--- a/contrib/template_project/pandoc/default.tex
++++ b/contrib/template_project/pandoc/default.tex
+@@ -139,24 +139,6 @@ $endif$
+ \author{$for(author)$$author$$sep$ \and $endfor$}
+ \date{$date$}
+ 
+-% Predefined for SIL2LinuxMP 
+-\usepackage{fancyhdr}
+-\pagestyle{fancy}
+-\renewcommand{\chaptermark}[1]{\markboth{#1}{}}
+-\fancyhf{} % clear the headers
+-\fancyhead[R]{%
+-   % The chapter number only if it's greater than 0
+-   \ifnum\value{chapter}>0 \chaptername\ \thechapter. \fi
+-   % The chapter title
+-   \leftmark}
+-\fancyfoot[C]{\thepage}
+-\fancypagestyle{plain}{
+-  \renewcommand{\headrulewidth}{0pt}
+-  \fancyhf{}
+-  \fancyfoot[C]{\thepage}
+-}
+-\setlength{\headheight}{14.5pt}
+-
+ $for(header-includes)$
+ $header-includes$
+ $endfor$
+@@ -205,4 +187,4 @@ $for(include-after)$
+ $include-after$
+ 
+ $endfor$
+-\end{document}
+\ No newline at end of file
++\end{document}
+diff --git a/rmtoo/lib/Pandoc.py b/rmtoo/lib/Pandoc.py
+index 61f3510..730911f 100644
+--- a/rmtoo/lib/Pandoc.py
++++ b/rmtoo/lib/Pandoc.py
+@@ -41,7 +41,7 @@ mimetypes.add_type("text/markdown", ".mdtext", False)
+ 
+ class PandocFile:
+     ''' A Pandoc file is a local copy of the source file.
+-    If possible the local copy is not a copy but the source file.
++    If possible the local copy is not a copy but the source file itself.
+     For some file types local copies are made in distinct output
+     directories to enable HTML generation with relative pathes that
+     link to directories (image/*, css/*) relative to the HTML main file.
+@@ -384,7 +384,36 @@ class PandocMarkdown:
+     # \3 == alternate
+     __re_image_markup = re.compile(r'\!\[(.+)\]\s*\(([^\s]+)\s*(.*)\)', re.MULTILINE)
+     
+-
++    # Extra arguments for tex generation in case the default template is used
++    __output_template_tex_default_args = [
++	"-V", "documentclass=report",
++        "-V", "mainfont=TeX Gyre Termes", 
++        "-V", "papersize=a4paper",
++        "-V", "header-includes=" +
++              r"\usepackage{fancyhdr}" + "\n" +
++	      r"\pagestyle{fancy}" + "\n" +
++	      r"\renewcommand{\chaptermark}[1]{\markboth{#1}{}}" + "\n" +
++	      r"\fancyhf{} % clear the headers" + "\n" +
++	      r"\fancyhead[R]{%" + "\n" +
++	      r"    % The chapter number only if it's greater than 0" + "\n" +
++	      r"    \ifnum\value{chapter}>0 \chaptername\ \thechapter. \fi" + "\n" +
++              r"    % The chapter title" + "\n" +
++              r"    \leftmark}" + "\n" +
++              r"\fancyfoot[C]{\thepage}" + "\n" +
++              r"\fancypagestyle{plain}{" + "\n" +
++              r"   \renewcommand{\headrulewidth}{0pt}" + "\n" +
++              r"   \fancyhf{}" + "\n" +
++              r"   \fancyfoot[C]{\thepage}" + "\n" +
++              r"}" + "\n" +
++              r"\setlength{\headheight}{14.5pt}" + "\n"
++    ]
++    
++    # Extra arguments for html generation in case the default template is used
++    __output_template_html_default_args = [
++	"-V", "header-includes=" + 
++	      '<meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width">'
++    ]
++    
+     def __init__(self):
+         '''Create a pandoc1 markdown executor.
+         '''
+@@ -421,32 +450,71 @@ class PandocMarkdown:
+ 		# It's ok if already there
+ 		pass
+ 
+-    def __output_find_css_default_files(self):
+-	''' Find the default css files of rmtoo pandoc.'''
+-	# Default files are in <rmtoo_root>/contrib/template_project/pandoc
+-	output_css_files = []
+-	default_css_dir = os.path.join(self.__rmtoo_root, "contrib", "template_project", "pandoc")
+-	css_pathes = glob.iglob("%s/*.css" % default_css_dir)
++    def __output_find_template_tex(self):
++	''' Find the tex template.'''
++	output_template_args = []
++	if not self._config.is_available('output_template_tex'):
++	    # Default file is in in <rmtoo_root>/contrib/template_project/pandoc
++	    default_template_dir = os.path.join(self.__rmtoo_root, "contrib", "template_project", "pandoc")
++	    template_pathes = glob.iglob("%s/*.tex" % default_template_dir)
++	    output_template_args = PandocMarkdown.__output_template_tex_default_args
++	else:
++	    template_pathes = self._config.get_rvalue('output_template_tex')
++	output_template = []
+ 	# Assure css file is available in css directory for html output
+-	for css_path in css_pathes:
+-	    # Retrieve css file
+-	    css_file = PandocFile(self._config, css_path)
+-	    if css_file.filename == "main.css":
+-	    	# if there is a main.css make it the first one one the list.
+-		# Assures it is referenced from html
+-		output_css_files.prepend(css_file.relpath())
++	for template_path in template_pathes:
++	    # Retrieve tex template file
++	    template_file = PandocFile(self._config, template_path)
++	    if template_file.filename in ["default.tex", "template.tex"]:
++	    	# if there is a template.tex, default.tex make it the first one one in the list.
++		# That assures this one is referenced from pandoc
++		output_template.prepend(template_file.abspath())
+ 	    else:
+-		output_css_files.append(css_file.relpath())
+-	return output_css_files
++		output_template.append(template_file.abspath())
++	return output_template, output_template_args
++
++    def __output_find_template_html(self):
++	''' Find the html template.'''
++	output_template_args = []
++	if not self._config.is_available('output_template_html'):
++	    # Default file is in in <rmtoo_root>/contrib/template_project/pandoc
++	    default_template_dir = os.path.join(self.__rmtoo_root, "contrib", "template_project", "pandoc")
++	    template_pathes = glob.iglob("%s/*.html" % default_template_dir)
++	    output_template_args = PandocMarkdown.__output_template_html_default_args
++	else:
++	    template_pathes = self._config.get_rvalue('output_template_html')
++	output_template = []
++	# Assure css file is available in css directory for html output
++	for template_path in template_pathes:
++	    # Retrieve tex template file
++	    template_file = PandocFile(self._config, template_path)
++	    if template_file.filename in ["default.html", "template.html"]:
++	    	# if there is a template.tex, default.tex make it the first one one in the list.
++		# That assures this one is referenced from pandoc
++		output_template.prepend(template_file.abspath())
++	    else:
++		output_template.append(template_file.abspath())
++	return output_template, output_template_args
+ 
+     def __output_find_css_files(self):
+-	''' Find the css files as specified in config file.'''
++	''' Find the *.css files.'''
++	if not self._config.is_available('output_css_files'):
++	    # Default files are in <rmtoo_root>/contrib/template_project/pandoc
++	    default_css_dir = os.path.join(self.__rmtoo_root, "contrib", "template_project", "pandoc")
++	    css_pathes = glob.iglob("%s/*.css" % default_css_dir)
++	else:
++	    css_pathes = self._config.get_rvalue('output_css_files')
+ 	output_css_files = []
+ 	# Assure css file is available in css directory for html output
+-	for css_path in self._config.get_rvalue('output_css_files'):
++	for css_path in css_pathes:
+ 	    # Retrieve css file
+ 	    css_file = PandocFile(self._config, css_path)
+-	    output_css_files.append(css_file.relpath())
++	    if css_file.filename in ["main.css", "default.css"]:
++	    	# if there is a main.css or default.css make it the first one one in the list.
++		# That assures this one is referenced from html
++		output_css_files.prepend(css_file.relpath())
++	    else:
++		output_css_files.append(css_file.relpath())
+ 	return output_css_files
+ 
+     def output_pre(self, oconfig, output_name):
+@@ -462,31 +530,20 @@ class PandocMarkdown:
+         
+ 	# -- Do all the configuration ---
+         
++        # Set up output directories
+         # Output directory - all other ouput directories and files are relative to this one.
+         if self._config.is_available('output_directory'):
+             self.__output_directory = self._config.get_rvalue('output_directory')
+         else:
+ 	    raise RMTException(119, "Pandoc output directory not specified. Please add to config file.",
+ 			       self.__class__.__name__)
+-        if self._config.is_available('output_cover_image'):
+-            self.__output_cover_image = self._config.get_rvalue('output_cover_image')
+-        else:
+-            self.__output_cover_image = None
+-        if self._config.is_available('output_template_tex'):
+-            self.__output_template_tex = self._config.get_rvalue('output_template_tex')
+-        else:
+-            self.__output_template_tex = None
+-
+-	# Some derived directories, make them known in the configuration - e.g for filters, ...
+-	
+ 	# for image files
+         if not self._config.is_available('output_image_directory'):
+ 	    self._config.set_value("output_image_directory", "image") 
+-	self.__output_image_directory = self._config.get_rvalue('output_image_directory')
++	self.__output_image_directory = self._config.get_rvalue('output_image_directory')	  
+ 	self.__output_image_path = os.path.join(self.__output_directory,
+ 					        self.__output_image_directory)
+-	self._config.set_value("output_image_path", self.__output_image_path) 
+-
++	self._config.set_value("output_image_path", self.__output_image_path) 	  
+ 	# For css files (html)
+         if not self._config.is_available('output_css_directory'):
+ 	    self._config.set_value("output_css_directory", "css") 
+@@ -494,19 +551,26 @@ class PandocMarkdown:
+ 	self.__output_css_path = os.path.join(self.__output_directory,
+ 					      self.__output_css_directory)
+ 	self._config.set_value("output_css_path", self.__output_css_path)
+-        if not self._config.is_available('output_css_files'):
+-	    self.__output_css_files = self.__output_find_css_default_files()
+-	else:
+-	    self.__output_css_files = self.__output_find_css_files()
+-	
+-	# Other values are set on topic_set_pre - these are only default values.
++        # Assure all directories are available
++        self.__output_mkdirs()	
++
++	# Set up template/ configuration files
++	# Tex/ PDF output
++	self.__output_template_tex, self.__output_template_tex_args = self.__output_find_template_tex()
++	# HTML output
++	self.__output_template_html, self.__output_template_html_args = self.__output_find_template_html()
++	self.__output_css_files = self.__output_find_css_files()
++	# General output features
++        if self._config.is_available('output_cover_image'):
++            self.__output_cover_image = self._config.get_rvalue('output_cover_image')
++        else:
++            self.__output_cover_image = None
++            
++	# Setup output file names.
+ 	self.__output_filename_md = os.path.join(self.__output_directory, output_name + ".md") 
+ 	self.__output_filename_pdf = os.path.join(self.__output_directory, output_name + ".pdf")
+ 	self.__output_filename_html = os.path.join(self.__output_directory, output_name + ".html")
+         
+-        # Assure everything is available
+-        self.__output_mkdirs()
+-        
+         # Finally open the markdown file as our primary output
+         self.__fd = open(self.__output_filename_md, "w")
+         return self.__fd
+@@ -521,18 +585,22 @@ class PandocMarkdown:
+         if len(self.__output_filename_pdf) > 0:
+             self.__fd = open(self.__output_filename_md, "r")
+             # Run process - assure it is run in output directory to make relative path work
++            print ["--standalone", "--smart",
++                                    "--table-of-contents", "--toc-depth=6",
++                                    "--number-sections",
++                                    "--output=%s" % (self.__output_filename_pdf), 
++                                    "--template=%s" % (self.__output_template_tex[0]),
++                                    "--latex-engine=xelatex"
++                                   ] + self.__output_template_tex_args
+             PandocRun.process_file(self.__fd.read(), "latex", 
+                                    "markdown", 
+                                    ["--standalone", "--smart",
+                                     "--table-of-contents", "--toc-depth=6",
+                                     "--number-sections",
+                                     "--output=%s" % (self.__output_filename_pdf), 
+-                                    "--template=%s" % (self.__output_template_tex),
+-                                    "--latex-engine=xelatex",
+-                                    "-V", "documentclass=report",
+-                                    "-V", "mainfont=TeX Gyre Termes", 
+-                                    "-V", "papersize=a4paper"
+-                                   ],
++                                    "--template=%s" % (self.__output_template_tex[0]),
++                                    "--latex-engine=xelatex"
++                                   ] + self.__output_template_tex_args,
+ 				   self.__output_directory)
+             self.__fd.close()
+         if len(self.__output_filename_html) > 0:
+@@ -543,10 +611,10 @@ class PandocMarkdown:
+                                    ["--standalone", "--smart",
+                                     "--table-of-contents", "--toc-depth=6",
+                                     "--number-sections",
+-                                    "--output=%s" % (self.__output_filename_html),
+-                                    "-V", "css=%s" % (self.__output_css_files[0]),
+-                                    "-V", 'header-includes=<meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width">'
+-                                   ],
++                                    "--output=%s" % (self.__output_filename_html[0]),
++                                    "--template=%s" % (self.__output_template_html[0]),
++                                    "-V", "css=%s" % (self.__output_css_files[0])
++                                   ] + self.__output_template_html_args,
+ 				   self.__output_directory)
+             self.__fd.close()
+ 
+-- 
+1.8.3.2
+

@@ -9,7 +9,7 @@
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
-SET(SIL2LINUXMP_PROJECT_NAME sil2linuxmp-demonstrator)
+SET(SIL2LINUXMP_PROJECT_NAME "SIL2LinuxMP Demonstrator")
 
 # Set directories for project specific (not generic SIL2LinuxMP) requirements.
 SET(SIL2LINUXMP_PROJECT_REQUIREMENTS_DIR "${CMAKE_SOURCE_DIR}/specifications/requirements")

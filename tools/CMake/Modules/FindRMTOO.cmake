@@ -25,7 +25,7 @@ INCLUDE(ProcessorCount)
 #  We definitely need that
 FIND_PACKAGE(PythonInterp 2 REQUIRED)
 FIND_PACKAGE(GIT REQUIRED)
-FIND_PACKAGE(PANDOC REQUIRED)
+FIND_PACKAGE(PANDOC 1.11 REQUIRED)
 FIND_PACKAGE(GRAPHVIZ REQUIRED)
 
 
@@ -414,6 +414,7 @@ FUNCTION(RMTOO_ADD)
     ENDIF()
 
     IF(NOT ${prefix_TOPIC1_NAME})
+	# Generate at least one topic
         SET(${prefix}_TOPIC1_NAME "${CMAKE_PROJECT_NAME}")
     ENDIF()
     FOREACH(TOPIC "TOPIC1" "TOPIC2" "TOPIC3")
@@ -690,6 +691,8 @@ FUNCTION(RMTOO_ADD)
                 "        \"texts_dirs\": [ ${TOPIC_TEXTS_DIRS} ],\n"
                 "        \"output_directory\": \"${${prefix}_${TOPIC}_OUTPUT_PANDOC1_DIRECTORY}\",\n"
                 "        \"output_basename\": \"${${prefix}_${TOPIC}_OUTPUT_PANDOC1_BASENAME}\",\n"
+                "        \"output_title\": \"${${prefix}_${TOPIC}_TITLE}\",\n"
+                "        \"output_subtitle\": \"${${prefix}_${TOPIC}_SUBTITLE}\",\n"
                 "        \"output_cover_image\": \"/home/bernhard/sil2linuxmp-prep/specifications/texts/sil2linuxmp_go.jpg\"\n"
                 "      }\n"
                 "    ],\n")              

@@ -86,6 +86,7 @@ RMTOO_ADD(REQUIREMENTS_INVENTORS "Authors"
           REQUIREMENTS_STAKEHOLDERS "Requirements Manager" Designer Implementer Tester Verifier Validator Integrator Assessor Community 
                                     "Configuration Manager"
           TOPIC1_NAME "${SIL2LINUXMP_PROJECT_NAME}"
+          TOPIC1_TITLE "${SIL2LINUXMP_PROJECT_NAME}"
           TOPIC1_SUBTITLE "Certification Package"
           TOPIC1_REQUIREMENTS_DIRS "${SIL2LINUXMP_ROOT_DIR}/specifications/requirements"
                                    ${SIL2LINUX_PROJECT_MASTER_REQUIREMENT_DIR} ${SIL2LINUXMP_PROJECT_REQUIREMENTS_DIR} 

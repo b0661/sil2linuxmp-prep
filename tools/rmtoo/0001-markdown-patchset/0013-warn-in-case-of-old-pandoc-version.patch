@@ -1,0 +1,273 @@
+From f51db271dbc0dac248b530ca3c60ba7673fab7db Mon Sep 17 00:00:00 2001
+From: Bernhard Noelte <b0661n0e17e@gmail.com>
+Date: Sat, 26 Apr 2014 07:25:34 +0200
+Subject: [PATCH] Warn in case of old pandoc version.
+
+Also make more robust against old pandoc versions.
+---
+ rmtoo/lib/Pandoc.py      | 149 +++++++++++++++++++++++++++++++++++++----------
+ rmtoo/outputs/pandoc1.py |  15 +++--
+ 2 files changed, 124 insertions(+), 40 deletions(-)
+
+diff --git a/rmtoo/lib/Pandoc.py b/rmtoo/lib/Pandoc.py
+index 8b5a088..aade751 100644
+--- a/rmtoo/lib/Pandoc.py
++++ b/rmtoo/lib/Pandoc.py
+@@ -307,6 +307,9 @@ class PandocAST:
+ 
+ 
+ class PandocRun:
++    # regular expressions for pandoc version in pandoc -v output
++    __re_version = re.compile(r'pandoc\s([0-9\.]+)')
++
+     @staticmethod
+     def convert(reader, processor, source, to, format=None, extra_args=()):
+         '''Converts given `source` from `format` `to` another. `source` may be either a file path or a string to be converted.
+@@ -395,6 +398,62 @@ class PandocRun:
+         out = aux[1].split(',')
+ 
+         return [f.strip() for f in in_], [f.strip() for f in out]
++    
++    @staticmethod
++    def version_info():
++        '''
++        Return pandoc version as array e.g. ['1', '12', '2', '1'].
++        ''' 
++        args = ['pandoc', '-v']
++
++        p = subprocess.Popen(
++                args,
++                stdin=subprocess.PIPE,
++                stdout=subprocess.PIPE,
++                stderr=subprocess.PIPE,
++                )
++        
++        result = p.communicate()
++        
++        trace_result = "%s - return: %s - stdout: %s - stderr: %s" % (" ".join(args), p.returncode, result[0], result[1])
++        if p.returncode == 0:
++            tracer.debug(trace_result)
++        else:
++            tracer.error(trace_result)  
++            print("Pandoc %s" % " ".join(result))
++        
++        version = PandocRun.__re_version.search(result[0].decode('utf-8')).group(1)
++        version_info = version.split('.')
++        
++        if version_info[3] == None:
++            version_info[3] = '0'
++        if version_info[2] == None:
++            version_info[2] = '0'
++        if version_info[1] == None:
++            version_info[1] = '0'
++        if version_info[0] == None:
++            version_info[0] = '0' 
++        
++        return version_info
++    
++    @staticmethod
++    def hexversion():
++        '''
++        Return pandoc version as an hex value e.g. 0x01120201 for 1.12.2.1.
++        ''' 
++        version_info = PandocRun.version_info()
++
++        hexv = 0;
++        shift = 6*4
++        for token in version_info:
++            if len(token) > 1:
++                hexv += int(token[0]) << (shift + 4)
++                hexv += int(token[1]) << shift
++            else:
++                hexv += int(token) << shift
++            shift -= 2*4
++                
++        return hexv
+ 
+ 
+ # Pandoc Markdown Handling
+@@ -448,7 +507,7 @@ class PandocMarkdown:
+     
+     # Extra arguments for tex generation in case the default template is used
+     __output_template_tex_default_args = [
+-	"-V", "documentclass=report",
++	"-V", "documentclass=scrreprt",
+         "-V", "mainfont=TeX Gyre Termes", 
+         "-V", "papersize=a4paper",
+         "-V", "header-includes=" +
+@@ -490,6 +549,10 @@ class PandocMarkdown:
+         self.__section_stack = []
+         # Root directory of rmtoo
+         self.__rmtoo_root = self.__rmtoo_root_find()
++        # Pandoc version
++        self.__pandoc_hexversion = PandocRun.hexversion()
++        if self.__pandoc_hexversion < 0x01110000:
++            tracer.fatal("Pandoc version too old. Please update!") 
+ 
+     def __rmtoo_root_find(self):
+ 	''' Find the root directory of the rmtoo installation. '''
+@@ -523,9 +586,9 @@ class PandocMarkdown:
+ 	else:
+ 	    template_pathes = self._config.get_rvalue('output_template_tex')
+ 	output_template = []
+-	# Assure css file is available in css directory for html output
++	# Assure tex template file is available.
+ 	for template_path in template_pathes:
+-	    # Retrieve tex template file
++	    # Retrieve tex template file.
+ 	    template_file = PandocFile(self._config, template_path)
+ 	    if template_file.filename in ["default.tex", "template.tex"]:
+ 	    	# if there is a template.tex, default.tex make it the first one one in the list.
+@@ -623,8 +686,18 @@ class PandocMarkdown:
+ 	self.__output_template_html, self.__output_template_html_args = self.__output_find_template_html()
+ 	self.__output_css_files = self.__output_find_css_files()
+ 	# General output features
++        if self._config.is_available('output_title'):
++            self.__output_title = self._config.get_rvalue('output_title')
++        else:
++            self.__output_title = None
++        if self._config.is_available('output_subtitle'):
++            self.__output_subtitle = self._config.get_rvalue('output_subtitle')
++        else:
++            self.__output_subtitle = None
+         if self._config.is_available('output_cover_image'):
+-            self.__output_cover_image = self._config.get_rvalue('output_cover_image')
++	    output_cover_file = PandocFile(self._config,
++					   self._config.get_rvalue('output_cover_image'))
++            self.__output_cover_image = output_cover_file.relpath()
+         else:
+             self.__output_cover_image = None
+             
+@@ -644,18 +717,23 @@ class PandocMarkdown:
+         self.__fd.close()
+         
+         tracer.debug("Generate dependent output.")
++        # Extra arguments to pandoc
++        extra_args = ["--standalone", "--smart",
++                      "--table-of-contents",
++                      "--number-sections"]
++        if self.__pandoc_hexversion >= 0x01100000:
++            extra_args += ["--toc-depth=4"]
++            
+         if len(self.__output_filename_pdf) > 0:
+             self.__fd = open(self.__output_filename_md, "r")
+             # Run process - assure it is run in output directory to make relative path work
+             PandocRun.process_file(self.__fd.read(), "latex", 
+-                                   "markdown", 
+-                                   ["--standalone", "--smart",
+-                                    "--table-of-contents", "--toc-depth=6",
+-                                    "--number-sections",
+-                                    "--output=%s" % (self.__output_filename_pdf), 
+-                                    "--template=%s" % (self.__output_template_tex[0]),
+-                                    "--latex-engine=xelatex"
+-                                   ] + self.__output_template_tex_args,
++                                   "markdown",
++                                   extra_args
++                                   + ["--output=%s" % (self.__output_filename_pdf), 
++                                      "--template=%s" % (self.__output_template_tex[0]),
++                                      "--latex-engine=xelatex"] 
++                                   + self.__output_template_tex_args,
+ 				   self.__output_directory)
+             self.__fd.close()
+         if len(self.__output_filename_html) > 0:
+@@ -663,13 +741,11 @@ class PandocMarkdown:
+             # Run process - assure it is run in output directory to make relative path work
+             PandocRun.process_file(self.__fd.read(), "html", 
+                                    "markdown", 
+-                                   ["--standalone", "--smart",
+-                                    "--table-of-contents", "--toc-depth=6",
+-                                    "--number-sections",
+-                                    "--output=%s" % (self.__output_filename_html),
+-                                    "--template=%s" % (self.__output_template_html[0]),
+-                                    "-V", "css=%s" % (self.__output_css_files[0])
+-                                   ] + self.__output_template_html_args,
++                                   extra_args
++                                   + ["--output=%s" % (self.__output_filename_html),
++                                      "--template=%s" % (self.__output_template_html[0]),
++                                      "-V", "css=%s" % (self.__output_css_files[0])]
++                                   + self.__output_template_html_args,
+ 				   self.__output_directory)
+             self.__fd.close()
+ 
+@@ -701,8 +777,9 @@ class PandocMarkdown:
+ 
+     def _MasterTopic_pre(self, title, identifier):
+         ''' Start a master topic.'''
+-        # No markdown.
+-        return
++        if self.__output_title != None:
++	    title = self.__output_title
++        self.title_block(title, self.__output_subtitle, "", date.today(), self.__output_cover_image)
+ 
+     def _MasterTopic_post(self):
+         ''' End a master topic. '''
+@@ -1011,18 +1088,26 @@ class PandocMarkdown:
+             self.__fd.write(line)
+         self.__fd.write("\n\n")
+ 
+-    def title_block(self, title, author, date, cover_image):
++    def title_block(self, title, subtitle, author, date, cover_image):
+         '''Output a title block. '''
+-        # YAML metadata block. (Version 1.12 needed)
+-        self.__fd.write("% {0}\n% {1}\n% {2}\n\n".format(title, author, date.isoformat()))
+-        #self.__fd.write("---\n")
+-        #self.__fd.write("title:\n- type: main\n  text: {0}\n".format(title))
+-        #self.__fd.write("creator:\n- role: author\n  text: {0}\n".format(author))
+-        #self.__fd.write("date: {0}\n".format(date.isoformat()))
+-        #if cover_image != None and len(cover_image) > 0:
+-        #    self.__fd.write("cover-image: {0}\n".format(cover_image))
+-        #self.__fd.write("---\n")
+-        
++        if self.__pandoc_hexversion >= 0x01120200:
++            # YAML metadata block. (Version 1.12.2.0 needed)
++            self.__fd.write("\n---\n")
++            #self.__fd.write("title:\n- type: main\n  text: '{0}'\n".format(title))
++            self.__fd.write("title: '{0}'\n".format(title))
++            if subtitle != None and len(subtitle) > 0:
++		#self.__fd.write("- type: subtitle\n  text: '{0}'\n".format(subtitle))
++		self.__fd.write("subtitle: '{0}'\n".format(subtitle))
++            if author != None and len(author) > 0:
++		#self.__fd.write("creator:\n- role: author\n  text: '{0}'\n".format(author))
++		self.__fd.write("author: '{0}'\n".format(author))
++            self.__fd.write("date: {0}\n".format(date.isoformat()))
++            if cover_image != None and len(cover_image) > 0:
++                self.__fd.write("cover-image: {0}\n".format(cover_image))
++            self.__fd.write("---\n")
++        else:
++            self.__fd.write("% {0}\n% {1}\n% {2}\n\n".format(title, author, date.isoformat()))
++       
+     def simple_table(self, simple_table, with_header=True):
+         '''Output a markdown table from a simple table.
+         Simple tables are just a list of rows, that are a list of cells.
+diff --git a/rmtoo/outputs/pandoc1.py b/rmtoo/outputs/pandoc1.py
+index f4e046d..a244c69 100644
+--- a/rmtoo/outputs/pandoc1.py
++++ b/rmtoo/outputs/pandoc1.py
+@@ -184,17 +184,16 @@ class pandoc1(ExecutorTopicContinuum, CreateMakeDependencies):
+         '''Output one topic.
+            This method is called once for each topic and subtopic.'''
+         tracer.debug("Called: topic name [%s]." % (topic.get_name()))
+-        if topic == self.__master_topic:
+-            # Write title block for master topic
+-            self.__markdown.title_block(topic.get_topic_name(), "", date.today(),
+-                                        self._config.get_rvalue('output_cover_image'))
+-        
+-        self.__markdown.section_pre("Topic", topic.get_topic_name(), PandocUID.topic(topic))
+-        self.__markdown.comment("Output topic '%s'" % topic.get_id())
++        # Master topic is openend by topic_set_pre
++        if topic != self.__master_topic:
++	    self.__markdown.section_pre("Topic", topic.get_topic_name(), PandocUID.topic(topic))
++	    self.__markdown.comment("Output Topic '%s'" % (topic.get_id())) 
+ 
+     def topic_post(self, topic):
+         '''Cleanup things for topic.'''
+-        self.__markdown.section_post("Topic")
++        # master topic is closed by topic_set_post.
++        if topic != self.__master_topic:
++	    self.__markdown.section_post("Topic")
+ 
+     def topic_name(self, _name):
+         '''Output the topic name.'''
+-- 
+1.9.1
+

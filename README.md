@@ -28,7 +28,8 @@ Install the following tools:
 
   * git
   * CMake
-  * pandoc
+  * pandoc >= 1.11
+  * texlive xetex
   * dot
   * unflatten
   * python 2.7
@@ -37,7 +38,7 @@ Install the following tools:
   
 For Ubuntu 13.10 the following will install all of the above:
 
-    sudo apt-get install git cmake pandoc graphviz python-all python-pygraphviz 
+    sudo apt-get install git cmake pandoc texlive-xetex texlive-fonts-recommended python-all python-pygraphviz 
 
 Get your copy of SIL2LinuxMP - Prep.
 
@@ -48,7 +49,7 @@ demonstrator project from inside the build directory.
 
     mkdir my-build-dir
     cd my-build-dir 
-    . ../.../sil2linuxmp-demonstrator/bootstrap
+    . <path to>/sil2linuxmp-prep/sil2linuxmp-demonstrator/bootstrap
 
 A configuration file is created in the
 build directory. Assure you have internet access

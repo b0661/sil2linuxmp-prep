@@ -1,0 +1,37 @@
+From f48657145f48f505c0f21311aba954fe23831a94 Mon Sep 17 00:00:00 2001
+From: Bernhard Noelte <b0661n0e17e@gmail.com>
+Date: Sat, 26 Apr 2014 09:56:05 +0200
+Subject: [PATCH] Use output_basename from config file for pandoc output.
+
+---
+ rmtoo/lib/Pandoc.py | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/rmtoo/lib/Pandoc.py b/rmtoo/lib/Pandoc.py
+index aade751..8a021e9 100644
+--- a/rmtoo/lib/Pandoc.py
++++ b/rmtoo/lib/Pandoc.py
+@@ -702,6 +702,8 @@ class PandocMarkdown:
+             self.__output_cover_image = None
+             
+ 	# Setup output file names.
++        if self._config.is_available('output_basename'):
++	    output_name = PandocUID.basename(self._config.get_rvalue('output_basename'))
+ 	self.__output_filename_md = os.path.join(self.__output_directory, output_name + ".md") 
+ 	self.__output_filename_pdf = os.path.join(self.__output_directory, output_name + ".pdf")
+ 	self.__output_filename_html = os.path.join(self.__output_directory, output_name + ".html")
+@@ -1276,4 +1278,11 @@ class PandocUID:
+     def requirement_tested_by(req):
+         '''Generate unique requirement identifier from requirement.'''
+         return PandocUID.requirement(req) + "-tested-by"
++      
++    @staticmethod
++    def basename(name):
++        '''Generate unique identifier from a file basename.
++        In fact sanitize the given basename to be usable in the file system.
++        '''      
++        return PandocUID.__uid(name)
+ 
+-- 
+1.9.1
+

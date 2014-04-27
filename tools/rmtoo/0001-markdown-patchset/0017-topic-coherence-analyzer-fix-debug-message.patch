@@ -1,0 +1,26 @@
+From 12c9c2f03bbf51077ac34a377e7f7b3d98d17ef8 Mon Sep 17 00:00:00 2001
+From: Bernhard Noelte <b0661n0e17e@gmail.com>
+Date: Sun, 27 Apr 2014 09:38:55 +0200
+Subject: [PATCH] Topic coherence analyzer fix debug message.
+
+---
+ rmtoo/lib/analytics/TopicCohe.py | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/rmtoo/lib/analytics/TopicCohe.py b/rmtoo/lib/analytics/TopicCohe.py
+index 4631cad..df8796f 100644
+--- a/rmtoo/lib/analytics/TopicCohe.py
++++ b/rmtoo/lib/analytics/TopicCohe.py
+@@ -70,7 +70,8 @@ class TopicCohe(Base):
+             or req_b.get_requirement().get_id() not in self.__req2topics:
+             tracer.debug("One of the requirements is not in the topic - "
+                          "skipping evaluation [%s] [%s]" %
+-                         (req_a.get_id(), req_b.get_id()))
++                         (req_a.get_requirement().get_id(),
++			  req_b.get_requirement().get_id()))
+             return
+ 
+         for topic_a in self.__req2topics[req_a.get_requirement().get_id()]:
+-- 
+1.9.1
+

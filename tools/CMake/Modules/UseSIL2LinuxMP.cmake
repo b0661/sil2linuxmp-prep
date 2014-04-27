@@ -90,9 +90,13 @@ RMTOO_ADD(REQUIREMENTS_INVENTORS "Authors"
           TOPIC1_SUBTITLE "Certification Package"
           TOPIC1_REQUIREMENTS_DIRS "${SIL2LINUXMP_ROOT_DIR}/specifications/requirements"
                                    ${SIL2LINUX_PROJECT_MASTER_REQUIREMENT_DIR} ${SIL2LINUXMP_PROJECT_REQUIREMENTS_DIR} 
-          TOPIC1_TOPICS_DIRS "${SIL2LINUXMP_ROOT_DIR}/specifications/topics" ${SIL2LINUXMP_PROJECT_TOPICS_DIR}
-          TOPIC1_CONSTRAINTS_DIRS "${SIL2LINUXMP_ROOT_DIR}/specifications/constraints" ${SIL2LINUXMP_PROJECT_CONSTRAINTS_DIR}
-          TOPIC1_TEXTS_DIRS "${SIL2LINUXMP_ROOT_DIR}/specifications/texts" ${SIL2LINUXMP_PROJECT_TEXTS_DIR}
+          TOPIC1_TOPICS_DIRS       "${SIL2LINUXMP_ROOT_DIR}/specifications/topics"
+                                   ${SIL2LINUXMP_PROJECT_TOPICS_DIR}
+          TOPIC1_CONSTRAINTS_DIRS  "${SIL2LINUXMP_ROOT_DIR}/specifications/constraints"
+                                   ${SIL2LINUXMP_PROJECT_CONSTRAINTS_DIR}
+          TOPIC1_TEXTS_DIRS        "${SIL2LINUXMP_ROOT_DIR}/specifications/texts"
+                                   "${CMAKE_BINARY_DIR}/rmtoo-clone/doc/man"
+                                   ${SIL2LINUXMP_PROJECT_TEXTS_DIR}
           TOPIC1_ROOT_NODE "SIL2LinuxMP"
           TOPIC1_OUTPUT_GRAPH_FILENAME "${CMAKE_BINARY_DIR}/certification-package/graph1.dot"
           TOPIC1_OUTPUT_GRAPH2_FILENAME "${CMAKE_BINARY_DIR}/certification-package/graph2.dot"

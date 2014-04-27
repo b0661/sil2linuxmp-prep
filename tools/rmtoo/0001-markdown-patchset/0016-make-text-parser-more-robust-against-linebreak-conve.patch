@@ -1,0 +1,25 @@
+From d6ff8bc39b238d788813191c5c766db25dea361b Mon Sep 17 00:00:00 2001
+From: Bernhard Noelte <b0661n0e17e@gmail.com>
+Date: Sun, 27 Apr 2014 09:26:29 +0200
+Subject: [PATCH] Make text parser more robust against linebreak convention.
+
+---
+ rmtoo/lib/storagebackend/txtfile/TxtRecord.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/rmtoo/lib/storagebackend/txtfile/TxtRecord.py b/rmtoo/lib/storagebackend/txtfile/TxtRecord.py
+index e79ece4..5ee82bc 100644
+--- a/rmtoo/lib/storagebackend/txtfile/TxtRecord.py
++++ b/rmtoo/lib/storagebackend/txtfile/TxtRecord.py
+@@ -80,7 +80,7 @@ class TxtRecord(Record):
+     # Parse everything from a string
+     def parse(self, s, rid):
+         # Split up into lines
+-        sl = s.split("\n")
++        sl = s.splitlines()
+         self.check_line_length(sl, rid)
+         self.maybe_remove_last_empty_line(sl)
+         self.comment_raw = TxtParser.extract_record_comment(sl)
+-- 
+1.9.1
+

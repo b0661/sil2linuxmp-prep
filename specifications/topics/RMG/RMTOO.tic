@@ -1,0 +1,8 @@
+Name: Requirements Management Tool
+Text:
+The rmtoo tool works on a set of requirements and
+produce artefacts from them.
+SubTopic: RMG/RMTOOManReqFormat
+SubTopic: RMG/RMTOOManTopicFormat
+SubTopic: RMG/RMTOOManTestcaseFormat
+SubTopic: RMG/RMTOOManConstraintFormat

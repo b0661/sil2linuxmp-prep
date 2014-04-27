@@ -1,0 +1,116 @@
+From 9a3967b84d1574b54f1394d4ba4e9da04b2d0d39 Mon Sep 17 00:00:00 2001
+From: Bernhard Noelte <b0661n0e17e@gmail.com>
+Date: Sat, 26 Apr 2014 22:55:53 +0200
+Subject: [PATCH] Add IncludeText: support for man/ troff files.
+
+- Adds a dependence to the doclifter tool.
+---
+ rmtoo/filters/pandoc1_filter_md.py | 43 ++++++++++++++++++++++++++++++++++++++
+ rmtoo/lib/Pandoc.py                | 18 ++++++++++++++--
+ 2 files changed, 59 insertions(+), 2 deletions(-)
+
+diff --git a/rmtoo/filters/pandoc1_filter_md.py b/rmtoo/filters/pandoc1_filter_md.py
+index 569afdb..5a941fd 100644
+--- a/rmtoo/filters/pandoc1_filter_md.py
++++ b/rmtoo/filters/pandoc1_filter_md.py
+@@ -63,6 +63,43 @@ class pandoc1_filter_md(IncludeFilter):
+         graph.draw(output_file)
+         return output_file
+       
++    def __filter_from_man(self, input_text):
++        ''' Filter man file content (troff format).
++        '''
++	# A process that reads troff from stdin and creates docbook on stdout
++	args = ['doclifter']
++	p = subprocess.Popen(
++		args, 
++		stdin=subprocess.PIPE,
++		stdout=subprocess.PIPE,
++		stderr=subprocess.PIPE,
++		)
++	result = p.communicate(input_text)
++            
++	trace_result = "%s - return: %s - stdout: %s - stderr: %s" % (" ".join(args), p.returncode, result[0], result[1])
++	if p.returncode == 0:
++	    tracer.debug(trace_result)
++	else:
++	    tracer.error(trace_result)
++
++	# A process that reads docbook from stdin and creates markdown on stdout
++	args = ['pandoc', '--no-wrap', '--atx-headers', '--from=docbook', '--to=markdown']
++	p = subprocess.Popen(
++		args, 
++		stdin=subprocess.PIPE,
++		stdout=subprocess.PIPE,
++		stderr=subprocess.PIPE,
++		)
++	result = p.communicate(result[0].encode('utf-8'))
++            
++	trace_result = "%s - return: %s - stdout: %s - stderr: %s" % (" ".join(args), p.returncode, result[0], result[1])
++	if p.returncode == 0:
++	    tracer.debug(trace_result)
++	else:
++	    tracer.error(trace_result)
++
++	return result[0]
++      
+     def __filter_from_csv(self, csv_data, csv_has_header):
+         ''' Filter csv data.
+         csv_data - input as returned by csv reader.
+@@ -145,4 +182,10 @@ class pandoc1_filter_md(IncludeFilter):
+ 		    csv_has_header = csv.Sniffer().has_header(csv_sample)
+ 		    csv_data = csv.reader(csv_file, csv_dialect)
+ 		    output_text += self.__filter_from_csv(csv_data, csv_has_header)
++            elif mimetype in ["application/x-troff", "application/x-troff-man", "application/x-troff-me",
++			      "application/x-troff-ms"]:
++                with open(source_file.abspath(), "r") as man_file:
++		    input_text = man_file.read()
++		    output_text += self.__filter_from_man(input_text)
++		
+         return output_text
+diff --git a/rmtoo/lib/Pandoc.py b/rmtoo/lib/Pandoc.py
+index 8a021e9..660eedf 100644
+--- a/rmtoo/lib/Pandoc.py
++++ b/rmtoo/lib/Pandoc.py
+@@ -37,6 +37,17 @@ mimetypes.add_type("text/markdown", ".mkd", False)
+ mimetypes.add_type("text/markdown", ".mdwn", False)
+ mimetypes.add_type("text/markdown", ".mdtxt", False)
+ mimetypes.add_type("text/markdown", ".mdtext", False)
++
++# Amend mimetypes to also include unix man pages
++mimetypes.add_type("application/x-troff", ".1", False)
++mimetypes.add_type("application/x-troff", ".2", False)
++mimetypes.add_type("application/x-troff", ".3", False)
++mimetypes.add_type("application/x-troff", ".4", False)
++mimetypes.add_type("application/x-troff", ".5", False)
++mimetypes.add_type("application/x-troff", ".6", False)
++mimetypes.add_type("application/x-troff", ".7", False)
++mimetypes.add_type("application/x-troff", ".8", False)
++
+ # Amend mimetypes to set .dot to text/vnd.graphviz
+ # (instead of application/msword)
+ mimetypes.add_type("text/vnd.graphviz", ".dot", True)
+@@ -141,7 +152,9 @@ class PandocFile:
+ 		filespec = (cachefile, "cached")
+ 	    else:
+ 		filespec = urllib.urlretrieve(source, cachefile)
+-	elif mimetype in ["text/markdown", "text/plain", "application/x-tex", "text/vnd.graphviz"]:
++	elif mimetype in ["text/markdown", "text/plain", "application/x-tex", "text/vnd.graphviz",
++		          "application/x-troff", "application/x-troff-man", "application/x-troff-me",
++		          "application/x-troff-ms"]:
+ 	    # can be cached elsewhere or not altogether
+ 	    filespec = urllib.urlretrieve(source)
+ 	else:
+@@ -1047,7 +1060,8 @@ class PandocMarkdown:
+ 	    
+ 	    # Adjust header levels
+ 	    if self.__section_level > 0:
+-	        fragment = PandocMarkdown.__re_header_markup_start.sub(PandocMarkdown.header_level_markup[self.__section_level], fragment)
++		# Also assure there is an empty line before a header.
++	        fragment = PandocMarkdown.__re_header_markup_start.sub(r"\n" + PandocMarkdown.header_level_markup[self.__section_level], fragment)
+ 	        
+ 	    self.__fd.write("%s\n\n" % (fragment))
+ 
+-- 
+1.9.1
+

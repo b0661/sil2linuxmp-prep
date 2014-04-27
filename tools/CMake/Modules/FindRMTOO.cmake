@@ -27,6 +27,7 @@ FIND_PACKAGE(PythonInterp 2 REQUIRED)
 FIND_PACKAGE(GIT REQUIRED)
 FIND_PACKAGE(PANDOC 1.11 REQUIRED)
 FIND_PACKAGE(GRAPHVIZ REQUIRED)
+FIND_PACKAGE(DOCLIFTER REQUIRED)
 
 
 #! @brief Stringify list elements
@@ -114,7 +115,7 @@ FUNCTION(RMTOO_MAKE)
     ENDIF()
     
     # -- Move tracking branch of master rmtoo git to origin/<branch>
-    SET(${prefix}_COMMAND "${GIT_EXECUTABLE}" "update-ref" "refs/heads/"${${prefix}_BRANCH}"" "origin/"${${prefix}_BRANCH}"")
+    SET(${prefix}_COMMAND "${GIT_EXECUTABLE}" "update-ref" "refs/heads/${${prefix}_BRANCH}" "origin/${${prefix}_BRANCH}")
     EXECUTE_PROCESS(COMMAND ${${prefix}_COMMAND}
                     WORKING_DIRECTORY "${${prefix}_WORKING_DIR}"
                     RESULT_VARIABLE ${prefix}_RESULT

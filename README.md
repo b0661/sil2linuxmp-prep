@@ -30,6 +30,7 @@ Install the following tools:
   * CMake
   * pandoc >= 1.11
   * texlive xetex
+  * doclifter
   * dot
   * unflatten
   * python 2.7
@@ -38,7 +39,7 @@ Install the following tools:
   
 For Ubuntu 13.10 the following will install all of the above:
 
-    sudo apt-get install git cmake pandoc texlive-xetex texlive-fonts-recommended graphviz python-all python-pygraphviz 
+    sudo apt-get install git cmake pandoc texlive-xetex texlive-fonts-recommended doclifter graphviz python-all python-pygraphviz 
 
 Get your copy of SIL2LinuxMP - Prep.
 
